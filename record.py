@@ -43,9 +43,9 @@ def click_on_monitor(is_primary_monitor, x, y):
 
 def automate_clicks(input_data, action):
     if action == "start":
-        coordinates = "startCoordinates"
+        coordinates = "start_coordinates"
     elif action == "stop":
-        coordinates = "stopCoordinates"
+        coordinates = "stop_coordinates"
     else:
         raise ValueError("La acción debe ser start o stop")
 
@@ -79,12 +79,12 @@ def create_clicks(input_data, software_names):
         if software_name == AUDACITY_SOFTWARE_NAME:
             clicks.append({
                 "software_name": AUDACITY_SOFTWARE_NAME,
-                "startCoordinates": {"x": AUDACITY_START_X, "y": AUDACITY_START_Y},
-                "stopCoordinates": {"x": AUDACITY_STOP_X, "y": AUDACITY_STOP_Y}})
+                "start_coordinates": {"x": AUDACITY_START_X, "y": AUDACITY_START_Y},
+                "stop_coordinates": {"x": AUDACITY_STOP_X, "y": AUDACITY_STOP_Y}})
         elif software_name == OBS_STUDIO_SOFTWARE_NAME:
             clicks.append({"software_name": OBS_STUDIO_SOFTWARE_NAME,
-                "startCoordinates": {"x": OBS_STUDIO_START_X, "y": OBS_STUDIO_START_Y},
-                "stopCoordinates": {"x": OBS_STUDIO_STOP_X, "y": OBS_STUDIO_STOP_Y}})
+                "start_coordinates": {"x": OBS_STUDIO_START_X, "y": OBS_STUDIO_START_Y},
+                "stop_coordinates": {"x": OBS_STUDIO_STOP_X, "y": OBS_STUDIO_STOP_Y}})
     input_data["clicks"] = clicks
 
 
