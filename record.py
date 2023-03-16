@@ -11,16 +11,21 @@ from pynput import keyboard, mouse
 
 OS_MAC_NAME = "darwin"
 TEN_MILLISECONDS = 0.01
-AUDACITY_SOFTWARE_NAME = "audacity"
+AUDACITY_SOFTWARE_NAME = "audacity" # macbook air m1
 AUDACITY_START_X = 1270
 AUDACITY_START_Y = 35
 AUDACITY_STOP_X = 1150
 AUDACITY_STOP_Y = 35
-OBS_STUDIO_SOFTWARE_NAME = "obs-studio"
+OBS_STUDIO_SOFTWARE_NAME = "obs-studio" # macbook air m1
 OBS_STUDIO_START_X = 950
 OBS_STUDIO_START_Y = 1000
 OBS_STUDIO_STOP_X = 950
 OBS_STUDIO_STOP_Y = 1000
+OBS_WIN_SOFTWARE_NAME = "obs-win" # xps13
+OBS_WIN_START_X = 3650
+OBS_WIN_START_Y = 1450
+OBS_WIN_STOP_X = 3650
+OBS_WIN_STOP_Y = 1450
 HELP_TEXT = "Este script permite generar una lista de automatizaciones de clicks para los programas deseados.\n\
 Si indica hora ya transcurrida en el día para su ejecución, el script se ejecutará de inmediato.\n\n\
     Los parámetros disponibles son:\n\
@@ -85,6 +90,10 @@ def create_clicks(input_data, software_names):
             clicks.append({"software_name": OBS_STUDIO_SOFTWARE_NAME,
                 "start_coordinates": {"x": OBS_STUDIO_START_X, "y": OBS_STUDIO_START_Y},
                 "stop_coordinates": {"x": OBS_STUDIO_STOP_X, "y": OBS_STUDIO_STOP_Y}})
+        elif software_name == OBS_WIN_SOFTWARE_NAME:
+            clicks.append({"software_name": OBS_WIN_SOFTWARE_NAME,
+                "start_coordinates": {"x": OBS_WIN_START_X, "y": OBS_WIN_START_Y},
+                "stop_coordinates": {"x": OBS_WIN_STOP_X, "y": OBS_WIN_STOP_Y}})
     input_data["clicks"] = clicks
 
 
