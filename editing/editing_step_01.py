@@ -4,6 +4,7 @@ import json
 import logging
 import psutil
 import time
+import re
 import subprocess
 import DaVinciResolveScript as davinci_resolve_script
 
@@ -47,6 +48,7 @@ ASSET_VIDEO_NAME_CAMERA = 'camera.mov'
 ASSET_VIDEO_NAME_GAMEPLAY = 'gameplay.mov'
 ASSET_VIDEO_NAME_INTRO = 'intro.mov'
 ASSET_VIDEO_NAME_OUTRO = 'outro.mov'
+FPS = 30
 
 # info messages
 INFO_MESSAGE_LOADING_DAVINCI_RESOLVE = 'Abriendo DaVinci Resolve'
@@ -60,6 +62,7 @@ ERROR_MESSAGE_BASE_PROJECT_NOT_FOUND = 'No se encontró el proyecto base en DaVi
 ERROR_MESSAGE_MEDIA_DIR_NOT_FOUND = 'No se encontró el directorio en el Media Pool.'
 ERROR_MESSAGE_TIMELINE_NOT_FOUND = 'No se encontró el timeline en el proyecto.'
 ERROR_MESSAGE_ASSET_NOT_FOUND = 'No se encontró el asset en la lista dada.'
+ERROR_MESSAGE_INCORREC_TIMESTRIG_FORMAT = 'Formato de timestring hh:mm:ss incorrecto.'
 
 # logger config
 DEBUG_MODE = True
@@ -236,11 +239,56 @@ def get_asset_by_name(name, media_pool_items):
     """
     number_of_items = len(media_pool_items)
     for item_index in range(number_of_items):
-        print('Media Pool Item Name: ', media_pool_items[item_index].GetName())
         current_asset = media_pool_items[item_index]
         if current_asset.GetName() == name:
             return current_asset
     raise Exception(ERROR_MESSAGE_ASSET_NOT_FOUND + '\n' + name)
+
+
+def timestring_to_second(timestring):
+    """
+    Obtiene el número del último segundo dada una cadena de tiempo en formato hh:mm:ss.
+    Es decir, una cadena que indica una duración de 1 hora con 20 minutos y 43 segundos
+    sería "01:20:43" y el último segundo sería el "3703".
+    Args:
+        timestring (str): Cadena que representa una duración de tiempo en formato hh:mm:ss.
+    Returns:
+        int: Número del último segundo del timestring.
+    Raises:
+        Exception: Si no se da un timestring en formaato adecuado.
+    """
+    timestring_regex = re.compile("^([0-9]{2}):([0-5][0-9]):([0-5][0-9])$")
+    match = timestring_regex.match(timestring)
+    if not match:
+        raise Exception(ERROR_MESSAGE_INCORREC_TIMESTRIG_FORMAT + '\n' + timestring)
+    h, m, s = timestring.split(':')
+    last_second = int(h) * 3600 + int(m) * 60 + int(s)
+    return last_second
+
+
+def generate_clip_info_list_from_highlights(clip, highlights):
+    """
+    Obtiene una lista de directorios con información del media clip entendible por
+    DaVinci Resolve. Esta información detalla qué partes del clip dado se agregarán
+    a la línea del tiempo actual.
+    Args:
+        clip (obj): Media pool item del api de davinci resolve.
+        highlights (list): Rangos de tiempo por convetir a clip info.
+    Returns:
+        dict: Lista de directorios con información del clip a importar.
+    """
+    clips_info = []
+    for highlight in highlights:
+        start_timestring = highlight[0] # el primer elemento siempre es el inicio
+        end_timestring = highlight[1] # el segundo elemento siempre es el final
+        start_frame = timestring_to_second(start_timestring)*FPS - FPS-1 # primer frame del segundo dado
+        end_frame = timestring_to_second(end_timestring)*FPS
+        clip_info = {
+            "mediaPoolItem": clip,
+            "startFrame" : start_frame,
+            "endFrame" : end_frame }
+        clips_info.append(clip_info)
+    return clips_info
 
 
 def create_hook(highlights_times, video_items, project_handler, media_pool_handler):
@@ -254,13 +302,12 @@ def create_hook(highlights_times, video_items, project_handler, media_pool_handl
         highlights_times (list): Rangos de tiempo de las partes más emocionantes del video.
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
     """
-    # 1. cambiarse a línea de tiempo del hook
     switch_to_timeline(TIMELINE_NAME_HOOK, project_handler)
-    # 2. agregar un clip al timeline a partir de uno video del media pool
-    gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
-    media_pool_handler.AppendToTimeline([{ "mediaPoolItem": gameplay_asset, "startFrame" : 1, "endFrame" : 30*5}])
-    # 3. agregar highlight clips al timeline
     logger.info(f'Hook Hightlights Timeranges: {highlights_times}')
+    gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
+    camera_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMERA, video_items)
+    camera_clips_info = generate_clip_info_list_from_highlights(camera_asset, highlights_times)
+    media_pool_handler.AppendToTimeline(camera_clips_info)
 
 
 def main():
