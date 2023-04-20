@@ -215,7 +215,7 @@ def switch_to_timeline(timeline_name, project_handler):
     project_handler.SetCurrentTimeline(hook_timeline)
     logger.info(f'Selected Timeline Name: {timeline_name}')
 
-def create_hook(highlights_times, project_handler):
+def create_hook(highlights_times, video_items, project_handler, media_pool_handler):
     """
     Crear el gancho inicial del video a partir de una lista de rangos de tiempo,
     cada elemento de la lista, a su vez es otra lista que solo pueden tener
@@ -229,6 +229,7 @@ def create_hook(highlights_times, project_handler):
     # 1. cambiarse a línea de tiempo del hook
     switch_to_timeline(TIMELINE_NAME_HOOK, project_handler)
     # 2. agregar un clip al timeline a partir de uno video del media pool
+    media_pool_handler.AppendToTimeline([{ "mediaPoolItem": video_items[3], "startFrame" : 1, "endFrame" : 30*5}])
     # 3. agregar highlight clips al timeline
     logger.info(f'Hook Hightlights Timeranges: {highlights_times}')
     pass
@@ -274,7 +275,7 @@ def main():
     logger.info(f'Media Pool Items Loaded: {audio_items}, {image_items}, {video_items}')
     # crear hook del video
     hook_timeranges = params['gameplay_details']['hook']
-    create_hook(hook_timeranges, project)
+    create_hook(hook_timeranges, video_items, project, media_pool)
 
     # guardar cambios
     project_manager.SaveProject()
