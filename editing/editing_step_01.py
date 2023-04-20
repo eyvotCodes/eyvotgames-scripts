@@ -33,16 +33,26 @@ AUDIO_MEDIA_DIR = 'audio'
 IMAGE_MEDIA_DIR = 'image'
 VIDEO_MEDIA_DIR = 'video'
 
+# project convenions
+TIMELINE_NAME = 'H16.9FHD'
+TIMELINE_NAME_CANVAS = 'H16.9FHD - Canvas'
+TIMELINE_NAME_CONTENT = 'H16.9FHD - Content'
+TIMELINE_NAME_HOOK = 'H16.9FHD - Hook'
+TIMELINE_NAME_INTRO = 'H16.9FHD - Intro'
+TIMELINE_NAME_MAIN = 'H16.9FHD - Main'
+TIMELINE_NAME_SUBJECT = 'H16.9FHD - Subject'
+
 # info messages
 INFO_MESSAGE_LOADING_DAVINCI_RESOLVE = 'Abriendo DaVinci Resolve'
 INFO_MESSAGE_EXITING_DAVINCI_RESOLVE = 'Cerrando DaVinci Resolve'
-INFO_MESSAGE_SAVING_PROJECT          = '       Guardando cambios'
+INFO_MESSAGE_SAVING_PROJECT  = 'Guardando cambios'
 
 # error messages
 ERROR_MESSAGE_JSON_FILE_NOT_FOUND = 'No se pudo encontrar el archivo JSON.'
 ERROR_MESSAGE_JSON_SYNTAX = 'Error de sintaxis en archivo JSON.'
 ERROR_MESSAGE_BASE_PROJECT_NOT_FOUND = 'No se encontró el proyecto base en DaVinci Resolve.'
 ERROR_MESSAGE_MEDIA_DIR_NOT_FOUND = 'No se encontró el directorio en el Media Pool.'
+ERROR_MESSAGE_TIMELINE_NOT_FOUND = 'No se encontró el timeline en el proyecto.'
 
 # logger config
 DEBUG_MODE = True
@@ -52,13 +62,6 @@ else:
     logging.basicConfig(format='%(asctime)s %(message)s')
 logger = logging.getLogger('logger')
 
-
-"""
-TODO: Función para crear el Hook
-* Crear gancho del video
-  - Obtener array de rangos de tiempo de los highlights desde el JSON de Parámetros
-  - Agregar partes específicas del video de gameplay al incio de la línea del tiempo (las que se parametrizaron)
-"""
 
 
 def get_current_timestamp():
@@ -169,7 +172,7 @@ def switch_to_page(page_name, resolve_handler):
 def choose_suffix_to_project_name(name, project_handler):
     """
     Determina un sufijo adecuado para el nombre del proyecto.
-    En caso de que se desee poner un proyecto un nombre ocupado por otro proyecto,
+    En caso de que se desee poner a un proyecto un nombre ocupado por otro proyecto,
     el sufijo irá cambiando de forma numérica incremental:
     _01, _02, _03, etc.
     Args:
@@ -187,6 +190,48 @@ def choose_suffix_to_project_name(name, project_handler):
         suffix = f'_{i:02d}'
         name = '_'.join(parts[:-1]) + suffix
     return name
+
+
+def switch_to_timeline(timeline_name, project_handler):
+    """
+    Cambia a un determinado timeline del proyecto abierto en davinci resolve.
+    Args:
+        timeline_name (str): Nombre del timeline al que se desea cambiar.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+    """
+    number_of_timelines = project_handler.GetTimelineCount()
+    logger.info(f'Timelines Number: {number_of_timelines}')
+    hook_timeline = None
+    for timeline_index in range(1, number_of_timelines+1):
+        # davinci resolve a pesar de referirse com índice en su método GetTimelineByIndex,
+        # en realidad no usa índices, es el número directamente del timeline comenzando
+        # por uno y hasta llegar al número retornado por GetTimelineCount
+        current_timeline = project_handler.GetTimelineByIndex(timeline_index)
+        if current_timeline.GetName() == timeline_name:
+            hook_timeline = current_timeline
+            break
+    if not hook_timeline:
+        raise Exception(ERROR_MESSAGE_TIMELINE_NOT_FOUND + '\n' + timeline_name)
+    project_handler.SetCurrentTimeline(hook_timeline)
+    logger.info(f'Selected Timeline Name: {timeline_name}')
+
+def create_hook(highlights_times, project_handler):
+    """
+    Crear el gancho inicial del video a partir de una lista de rangos de tiempo,
+    cada elemento de la lista, a su vez es otra lista que solo pueden tener
+    2 valores cadena en formato hh:mm:ss, el inicio y el fin del rango del tiempo.
+    El inicio es el primer elemento de la lista y el fin es el segungo elemento de
+    la lista.
+    Args:
+        highlights_times (list): Rangos de tiempo de las partes más emocionantes del video.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+    """
+    # 1. cambiarse a línea de tiempo del hook
+    switch_to_timeline(TIMELINE_NAME_HOOK, project_handler)
+    # 2. agregar un clip al timeline a partir de uno video del media pool
+    # 3. agregar highlight clips al timeline
+    logger.info(f'Hook Hightlights Timeranges: {highlights_times}')
+    pass
 
 
 def main():
@@ -227,6 +272,9 @@ def main():
     image_items = import_to_media_pool_dir(assets_dirs['image'], IMAGE_MEDIA_DIR, media_pool)
     video_items = import_to_media_pool_dir(assets_dirs['video'], VIDEO_MEDIA_DIR, media_pool)
     logger.info(f'Media Pool Items Loaded: {audio_items}, {image_items}, {video_items}')
+    # crear hook del video
+    hook_timeranges = params['gameplay_details']['hook']
+    create_hook(hook_timeranges, project)
 
     # guardar cambios
     project_manager.SaveProject()
