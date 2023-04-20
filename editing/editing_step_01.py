@@ -26,6 +26,8 @@ RESOLVE_INITIALIZER = 'Resolve'
 PAGE_MEDIA_NAME = 'media'
 PAGE_EDIT_NAME = 'edit'
 PAGE_FUSION_NAME = 'fusion'
+TRACK_TYPE_AUDIO = 'audio'
+TRACK_TYPE_VIDEO = 'video'
 
 # media dirs
 HORIZONTAL_VIDEO_MEDIA_DIR = 'H16.9FHD'
@@ -48,6 +50,9 @@ ASSET_VIDEO_NAME_CAMERA = 'camera.mov'
 ASSET_VIDEO_NAME_GAMEPLAY = 'gameplay.mov'
 ASSET_VIDEO_NAME_INTRO = 'intro.mov'
 ASSET_VIDEO_NAME_OUTRO = 'outro.mov'
+HOOK_TRACK_GAMEPLAY = 'gameplay'
+HOOK_TRACK_CAMERA = 'camera'
+HOOK_TRACK_MIC = 'mic'
 FPS = 30
 
 # info messages
@@ -224,6 +229,8 @@ def switch_to_timeline(timeline_name, project_handler):
         raise Exception(ERROR_MESSAGE_TIMELINE_NOT_FOUND + '\n' + timeline_name)
     project_handler.SetCurrentTimeline(hook_timeline)
     logger.info(f'Selected Timeline Name: {timeline_name}')
+    logger.info(f'Timeline Video Tracks: {hook_timeline.GetTrackCount(TRACK_TYPE_VIDEO)}')
+    logger.info(f'Timeline Audio Tracks: {hook_timeline.GetTrackCount(TRACK_TYPE_AUDIO)}')
 
 
 def get_asset_by_name(name, media_pool_items):
@@ -266,7 +273,7 @@ def timestring_to_second(timestring):
     return last_second
 
 
-def generate_clip_info_list_from_highlights(clip, highlights):
+def generate_clip_info_list_from_highlights(clip, highlights, track, project_handler):
     """
     Obtiene una lista de directorios con información del media clip entendible por
     DaVinci Resolve. Esta información detalla qué partes del clip dado se agregarán
@@ -274,6 +281,8 @@ def generate_clip_info_list_from_highlights(clip, highlights):
     Args:
         clip (obj): Media pool item del api de davinci resolve.
         highlights (list): Rangos de tiempo por convetir a clip info.
+        track (str): Nombre del track del timeline donde se desea agregar el clip.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
     Returns:
         dict: Lista de directorios con información del clip a importar.
     """
@@ -283,8 +292,18 @@ def generate_clip_info_list_from_highlights(clip, highlights):
         end_timestring = highlight[1] # el segundo elemento siempre es el final
         start_frame = timestring_to_second(start_timestring)*FPS - FPS-1 # primer frame del segundo dado
         end_frame = timestring_to_second(end_timestring)*FPS
+        current_timeline = project_handler.GetCurrentTimeline()
+        track_count = current_timeline.GetTrackCount(TRACK_TYPE_VIDEO)
+        track_index = 1
+        for index in range(1, track_count+1):
+            current_track_name = current_timeline.GetTrackName(TRACK_TYPE_VIDEO, index)
+            if current_track_name == track:
+                track_index = index
+                break
         clip_info = {
             "mediaPoolItem": clip,
+            "type": TRACK_TYPE_VIDEO,
+            "trackIndex": track_index,
             "startFrame" : start_frame,
             "endFrame" : end_frame }
         clips_info.append(clip_info)
@@ -306,7 +325,13 @@ def create_hook(highlights_times, video_items, project_handler, media_pool_handl
     logger.info(f'Hook Hightlights Timeranges: {highlights_times}')
     gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
     camera_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMERA, video_items)
-    camera_clips_info = generate_clip_info_list_from_highlights(camera_asset, highlights_times)
+    gameplay_clips_info = generate_clip_info_list_from_highlights(
+        gameplay_asset, highlights_times,
+        HOOK_TRACK_GAMEPLAY, project_handler)
+    camera_clips_info = generate_clip_info_list_from_highlights(
+        camera_asset, highlights_times,
+        HOOK_TRACK_CAMERA, project_handler)
+    media_pool_handler.AppendToTimeline(gameplay_clips_info)
     media_pool_handler.AppendToTimeline(camera_clips_info)
 
 
