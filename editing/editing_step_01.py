@@ -41,6 +41,12 @@ TIMELINE_NAME_HOOK = 'H16.9FHD - Hook'
 TIMELINE_NAME_INTRO = 'H16.9FHD - Intro'
 TIMELINE_NAME_MAIN = 'H16.9FHD - Main'
 TIMELINE_NAME_SUBJECT = 'H16.9FHD - Subject'
+ASSET_AUDIO_NAME_MICRO = 'micro.mp3'
+ASSET_IMAGE_NAME_WATERMARK = 'watermark.png'
+ASSET_VIDEO_NAME_CAMERA = 'camera.mov'
+ASSET_VIDEO_NAME_GAMEPLAY = 'gameplay.mov'
+ASSET_VIDEO_NAME_INTRO = 'intro.mov'
+ASSET_VIDEO_NAME_OUTRO = 'outro.mov'
 
 # info messages
 INFO_MESSAGE_LOADING_DAVINCI_RESOLVE = 'Abriendo DaVinci Resolve'
@@ -53,6 +59,7 @@ ERROR_MESSAGE_JSON_SYNTAX = 'Error de sintaxis en archivo JSON.'
 ERROR_MESSAGE_BASE_PROJECT_NOT_FOUND = 'No se encontró el proyecto base en DaVinci Resolve.'
 ERROR_MESSAGE_MEDIA_DIR_NOT_FOUND = 'No se encontró el directorio en el Media Pool.'
 ERROR_MESSAGE_TIMELINE_NOT_FOUND = 'No se encontró el timeline en el proyecto.'
+ERROR_MESSAGE_ASSET_NOT_FOUND = 'No se encontró el asset en la lista dada.'
 
 # logger config
 DEBUG_MODE = True
@@ -215,6 +222,27 @@ def switch_to_timeline(timeline_name, project_handler):
     project_handler.SetCurrentTimeline(hook_timeline)
     logger.info(f'Selected Timeline Name: {timeline_name}')
 
+
+def get_asset_by_name(name, media_pool_items):
+    """
+    Obtiene un media pool item buscándolo por su nombre.
+    Args:
+        name (str): Nombre del asset a obtener.
+        media_pool_items (list): Lista de assets donde se realizará la búsqueda.
+    Returns:
+        obj: Media Pool Item del asset buscado.
+    Raises:
+        Exception: Si el asset no ha sido encontrado.
+    """
+    number_of_items = len(media_pool_items)
+    for item_index in range(number_of_items):
+        print('Media Pool Item Name: ', media_pool_items[item_index].GetName())
+        current_asset = media_pool_items[item_index]
+        if current_asset.GetName() == name:
+            return current_asset
+    raise Exception(ERROR_MESSAGE_ASSET_NOT_FOUND + '\n' + name)
+
+
 def create_hook(highlights_times, video_items, project_handler, media_pool_handler):
     """
     Crear el gancho inicial del video a partir de una lista de rangos de tiempo,
@@ -229,10 +257,10 @@ def create_hook(highlights_times, video_items, project_handler, media_pool_handl
     # 1. cambiarse a línea de tiempo del hook
     switch_to_timeline(TIMELINE_NAME_HOOK, project_handler)
     # 2. agregar un clip al timeline a partir de uno video del media pool
-    media_pool_handler.AppendToTimeline([{ "mediaPoolItem": video_items[3], "startFrame" : 1, "endFrame" : 30*5}])
+    gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
+    media_pool_handler.AppendToTimeline([{ "mediaPoolItem": gameplay_asset, "startFrame" : 1, "endFrame" : 30*5}])
     # 3. agregar highlight clips al timeline
     logger.info(f'Hook Hightlights Timeranges: {highlights_times}')
-    pass
 
 
 def main():
