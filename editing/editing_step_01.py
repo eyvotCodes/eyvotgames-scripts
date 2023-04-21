@@ -20,6 +20,7 @@ SECONDS_TO_WAIT_FOR_DAVINCI_TO_OPEN = 7
 SECONDS_TO_WAIT_FOR_DAVINCI_TO_QUIT = 2
 SECONDS_TO_WAIT_FOR_PROJECT_SAVING = 1
 SECONDS_TO_WAIT_FOR_PAGE_CHANGE = 1
+SECONDS_TO_WAIT_FOR_PLAYHEAD_REPOSITION = 1
 
 # davinci resolve api values
 RESOLVE_INITIALIZER = 'Resolve'
@@ -37,6 +38,7 @@ IMAGE_MEDIA_DIR = 'image'
 VIDEO_MEDIA_DIR = 'video'
 
 # project convenions
+FPS = 30
 TIMELINE_NAME = 'H16.9FHD'
 TIMELINE_NAME_CANVAS = 'H16.9FHD - Canvas'
 TIMELINE_NAME_CONTENT = 'H16.9FHD - Content'
@@ -53,12 +55,20 @@ ASSET_VIDEO_NAME_OUTRO = 'outro.mov'
 HOOK_TRACK_GAMEPLAY = 'gameplay'
 HOOK_TRACK_CAMERA = 'camera'
 HOOK_TRACK_MIC = 'mic'
-FPS = 30
+START_TIMECODE = '01:00:00:00'
+CAMERA_PROPERTIES = [
+    ('ZoomX', 0.296),
+    ('ZoomY', 0.296),
+    ('CropLeft', 420),
+    ('CropRight', 420),
+    ('AnchorPointX', 1100)
+]
 
 # info messages
 INFO_MESSAGE_LOADING_DAVINCI_RESOLVE = 'Abriendo DaVinci Resolve'
 INFO_MESSAGE_EXITING_DAVINCI_RESOLVE = 'Cerrando DaVinci Resolve'
 INFO_MESSAGE_SAVING_PROJECT  = 'Guardando cambios'
+INFO_MESSAGE_REPOSITIONING_PLAYHEAD  = 'Reposicionando PlayHead'
 
 # error messages
 ERROR_MESSAGE_JSON_FILE_NOT_FOUND = 'No se pudo encontrar el archivo JSON.'
@@ -301,13 +311,23 @@ def generate_clip_info_list_from_highlights(clip, highlights, track, project_han
                 track_index = index
                 break
         clip_info = {
-            "mediaPoolItem": clip,
-            "type": TRACK_TYPE_VIDEO,
-            "trackIndex": track_index,
-            "startFrame" : start_frame,
-            "endFrame" : end_frame }
+            'mediaPoolItem': clip,
+            'trackIndex': track_index,
+            'startFrame' : start_frame,
+            'endFrame' : end_frame }
         clips_info.append(clip_info)
     return clips_info
+
+
+def reset_playhead_position(project_handler):
+    """
+    Reestablece el PlayHead a la posición inicial de la línea del tiempo actual.
+    Args:
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+    """
+    current_timeline = project_handler.GetCurrentTimeline()
+    current_timeline.SetCurrentTimecode(START_TIMECODE)
+    wait_for(SECONDS_TO_WAIT_FOR_PLAYHEAD_REPOSITION, INFO_MESSAGE_REPOSITIONING_PLAYHEAD)
 
 
 def create_hook(highlights_times, video_items, project_handler, media_pool_handler):
@@ -332,7 +352,11 @@ def create_hook(highlights_times, video_items, project_handler, media_pool_handl
         camera_asset, highlights_times,
         HOOK_TRACK_CAMERA, project_handler)
     media_pool_handler.AppendToTimeline(gameplay_clips_info)
-    media_pool_handler.AppendToTimeline(camera_clips_info)
+    reset_playhead_position(project_handler)
+    camera_items = media_pool_handler.AppendToTimeline(camera_clips_info)
+    for timeline_item in camera_items:
+        for property in CAMERA_PROPERTIES:
+            timeline_item.SetProperty(*property)
 
 
 def main():
