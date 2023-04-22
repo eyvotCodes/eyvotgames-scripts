@@ -49,20 +49,23 @@ TIMELINE_NAME_SUBJECT = 'H16.9FHD - Subject'
 ASSET_AUDIO_NAME_MICRO = 'micro.mp3'
 ASSET_IMAGE_NAME_WATERMARK = 'watermark.png'
 ASSET_VIDEO_NAME_CAMERA = 'camera.mov'
+ASSET_VIDEO_NAME_CAMFRAME = 'camframe.mov'
 ASSET_VIDEO_NAME_GAMEPLAY = 'gameplay.mov'
 ASSET_VIDEO_NAME_INTRO = 'intro.mov'
 ASSET_VIDEO_NAME_OUTRO = 'outro.mov'
 HOOK_TRACK_GAMEPLAY = 'gameplay'
 HOOK_TRACK_CAMERA = 'camera'
+HOOK_TRACK_CAMFRAME = 'camframe'
 HOOK_TRACK_MIC = 'mic'
 START_TIMECODE = '01:00:00:00'
 CAMERA_PROPERTIES = [
-    ('ZoomX', 0.296),
-    ('ZoomY', 0.296),
+    ('ZoomX', 0.285),
+    ('ZoomY', 0.285),
     ('CropLeft', 420),
     ('CropRight', 420),
-    ('AnchorPointX', 1100)
-]
+    ('AnchorPointX', 1082)]
+CAMFRAME_PROPERTIES = [
+    ('CompositeMode', 6)]
 
 # info messages
 INFO_MESSAGE_LOADING_DAVINCI_RESOLVE = 'Abriendo DaVinci Resolve'
@@ -258,6 +261,7 @@ def get_asset_by_name(name, media_pool_items):
     for item_index in range(number_of_items):
         current_asset = media_pool_items[item_index]
         if current_asset.GetName() == name:
+            logger.info(f'asset {name} loaded {dir(current_asset)}')
             return current_asset
     raise Exception(ERROR_MESSAGE_ASSET_NOT_FOUND + '\n' + name)
 
@@ -283,6 +287,32 @@ def timestring_to_second(timestring):
     return last_second
 
 
+def reset_playhead_position(project_handler):
+    """
+    Reestablece el PlayHead a la posición inicial de la línea del tiempo actual.
+    Args:
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+    """
+    current_timeline = project_handler.GetCurrentTimeline()
+    current_timeline.SetCurrentTimecode(START_TIMECODE)
+    wait_for(SECONDS_TO_WAIT_FOR_PLAYHEAD_REPOSITION, INFO_MESSAGE_REPOSITIONING_PLAYHEAD)
+
+
+def get_track_index(track_name, project_handler):
+    """
+    Si no se encuentra, por defecto retorna la primera.
+    """
+    current_timeline = project_handler.GetCurrentTimeline()
+    track_index = 1
+    track_count = current_timeline.GetTrackCount(TRACK_TYPE_VIDEO)
+    for index in range(1, track_count+1):
+        current_track_name = current_timeline.GetTrackName(TRACK_TYPE_VIDEO, index)
+        if current_track_name == track_name:
+            track_index = index
+            break
+    return track_index
+
+
 def generate_clip_info_list_from_highlights(clip, highlights, track, project_handler):
     """
     Obtiene una lista de directorios con información del media clip entendible por
@@ -300,34 +330,65 @@ def generate_clip_info_list_from_highlights(clip, highlights, track, project_han
     for highlight in highlights:
         start_timestring = highlight[0] # el primer elemento siempre es el inicio
         end_timestring = highlight[1] # el segundo elemento siempre es el final
-        start_frame = timestring_to_second(start_timestring)*FPS - FPS-1 # primer frame del segundo dado
-        end_frame = timestring_to_second(end_timestring)*FPS
-        current_timeline = project_handler.GetCurrentTimeline()
-        track_count = current_timeline.GetTrackCount(TRACK_TYPE_VIDEO)
-        track_index = 1
-        for index in range(1, track_count+1):
-            current_track_name = current_timeline.GetTrackName(TRACK_TYPE_VIDEO, index)
-            if current_track_name == track:
-                track_index = index
-                break
+        start_frame = timestring_to_second(start_timestring)*FPS
+        end_frame = timestring_to_second(end_timestring)*FPS - 1
+        track_index = get_track_index(track, project_handler)
         clip_info = {
             'mediaPoolItem': clip,
             'trackIndex': track_index,
             'startFrame' : start_frame,
-            'endFrame' : end_frame }
+            'endFrame' : end_frame,
+            'mediaType': 1 }
         clips_info.append(clip_info)
     return clips_info
 
 
-def reset_playhead_position(project_handler):
+def generate_camframe_clip_info(camframe_clip, highlights, track, project_handler):
     """
-    Reestablece el PlayHead a la posición inicial de la línea del tiempo actual.
-    Args:
-        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+    Text.
     """
-    current_timeline = project_handler.GetCurrentTimeline()
-    current_timeline.SetCurrentTimecode(START_TIMECODE)
-    wait_for(SECONDS_TO_WAIT_FOR_PLAYHEAD_REPOSITION, INFO_MESSAGE_REPOSITIONING_PLAYHEAD)
+    hook_total_seconds = 0
+    for highlight in highlights:
+        start_timestring = highlight[0] # el primer elemento siempre es el inicio
+        end_timestring = highlight[1] # el segundo elemento siempre es el final
+        start_second = timestring_to_second(start_timestring)
+        end_second = timestring_to_second(end_timestring)
+        hook_total_seconds += end_second - start_second
+    
+    hook_total_frames = hook_total_seconds * FPS
+    logger.info(f'hook_total_frames {hook_total_frames}')
+    camframe_long_timestring = camframe_clip.GetClipProperty("duration")
+    camframe_timestring = ':'.join(camframe_long_timestring.split(':')[:-1])
+    camframe_total_seconds = timestring_to_second(camframe_timestring)
+    camframe_total_frames = camframe_total_seconds * FPS
+    logger.info(f'camframe_total_frames {camframe_total_frames}')
+    number_of_full_camframes_needed = hook_total_frames // camframe_total_frames
+    logger.info(f'number_of_full_camframes_needed {number_of_full_camframes_needed}')
+    is_partial_camframe_needed = (hook_total_frames % camframe_total_frames) != 0
+    logger.info(f'is_partial_camframe_needed {is_partial_camframe_needed}')
+
+    clips_info = []
+    track_index = get_track_index(track, project_handler)
+    for _ in range(number_of_full_camframes_needed):
+        clip_info = {
+            'mediaPoolItem': camframe_clip,
+            'trackIndex': track_index,
+            'startFrame' : 0,
+            'endFrame' : camframe_total_frames,
+            'mediaType': 1 }
+        clips_info.append(clip_info)
+    if is_partial_camframe_needed:
+        partial_frames_needed = hook_total_frames \
+            - camframe_total_frames*number_of_full_camframes_needed
+        logger.info(f'partial_frames_needed {partial_frames_needed}')
+        clip_info = {
+            'mediaPoolItem': camframe_clip,
+            'trackIndex': track_index,
+            'startFrame' : 0,
+            'endFrame' : partial_frames_needed,
+            'mediaType': 1 }
+        clips_info.append(clip_info)
+    return clips_info
 
 
 def create_hook(highlights_times, video_items, project_handler, media_pool_handler):
@@ -345,18 +406,33 @@ def create_hook(highlights_times, video_items, project_handler, media_pool_handl
     logger.info(f'Hook Hightlights Timeranges: {highlights_times}')
     gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
     camera_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMERA, video_items)
+    camframe_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMFRAME, video_items)
+
     gameplay_clips_info = generate_clip_info_list_from_highlights(
         gameplay_asset, highlights_times,
         HOOK_TRACK_GAMEPLAY, project_handler)
     camera_clips_info = generate_clip_info_list_from_highlights(
         camera_asset, highlights_times,
         HOOK_TRACK_CAMERA, project_handler)
-    media_pool_handler.AppendToTimeline(gameplay_clips_info)
+    camframe_clips_info = generate_camframe_clip_info(
+        camframe_asset, highlights_times,
+        HOOK_TRACK_CAMFRAME, project_handler)
+    logger.info(f'gameplay_clips_info {gameplay_clips_info}')
+    logger.info(f'camera_clips_info {camera_clips_info}')
+    logger.info(f'camframe_clips_info {camframe_clips_info}')
+
+    reset_playhead_position(project_handler)
+    media_pool_handler.AppendToTimeline(camframe_clips_info)
     reset_playhead_position(project_handler)
     camera_items = media_pool_handler.AppendToTimeline(camera_clips_info)
+    reset_playhead_position(project_handler)
+    media_pool_handler.AppendToTimeline(gameplay_clips_info)
+
+    reset_playhead_position(project_handler)
     for timeline_item in camera_items:
         for property in CAMERA_PROPERTIES:
             timeline_item.SetProperty(*property)
+    reset_playhead_position(project_handler)
 
 
 def main():
