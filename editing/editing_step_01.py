@@ -29,6 +29,8 @@ PAGE_EDIT_NAME = 'edit'
 PAGE_FUSION_NAME = 'fusion'
 TRACK_TYPE_AUDIO = 'audio'
 TRACK_TYPE_VIDEO = 'video'
+ONLY_VIDEO_MEDIA_TYPE = 1
+ONLY_AUDIO_MEDIA_TYPE = 2
 
 # media dirs
 HORIZONTAL_VIDEO_MEDIA_DIR = 'H16.9FHD'
@@ -39,6 +41,7 @@ VIDEO_MEDIA_DIR = 'video'
 
 # project convenions
 FPS = 30
+NOT_OVERLAPPING_FRAME = 1
 TIMELINE_NAME = 'H16.9FHD'
 TIMELINE_NAME_CANVAS = 'H16.9FHD - Canvas'
 TIMELINE_NAME_CONTENT = 'H16.9FHD - Content'
@@ -331,15 +334,17 @@ def generate_clip_info_list_from_highlights(clip, highlights, track, project_han
         start_timestring = highlight[0] # el primer elemento siempre es el inicio
         end_timestring = highlight[1] # el segundo elemento siempre es el final
         start_frame = timestring_to_second(start_timestring)*FPS
-        end_frame = timestring_to_second(end_timestring)*FPS - 1
+        end_frame = timestring_to_second(end_timestring)*FPS - NOT_OVERLAPPING_FRAME
         track_index = get_track_index(track, project_handler)
         clip_info = {
             'mediaPoolItem': clip,
             'trackIndex': track_index,
             'startFrame' : start_frame,
             'endFrame' : end_frame,
-            'mediaType': 1 }
+            'mediaType': ONLY_VIDEO_MEDIA_TYPE }
         clips_info.append(clip_info)
+        logger.info(f'preparing {(end_frame - start_frame + NOT_OVERLAPPING_FRAME) / 30} \
+                    sec of {clip.GetName()} clip to add to {track} track')
     return clips_info
 
 
@@ -374,8 +379,8 @@ def generate_camframe_clip_info(camframe_clip, highlights, track, project_handle
             'mediaPoolItem': camframe_clip,
             'trackIndex': track_index,
             'startFrame' : 0,
-            'endFrame' : camframe_total_frames,
-            'mediaType': 1 }
+            'endFrame' : camframe_total_frames - NOT_OVERLAPPING_FRAME,
+            'mediaType': ONLY_VIDEO_MEDIA_TYPE }
         clips_info.append(clip_info)
     if is_partial_camframe_needed:
         partial_frames_needed = hook_total_frames \
@@ -385,10 +390,46 @@ def generate_camframe_clip_info(camframe_clip, highlights, track, project_handle
             'mediaPoolItem': camframe_clip,
             'trackIndex': track_index,
             'startFrame' : 0,
-            'endFrame' : partial_frames_needed,
-            'mediaType': 1 }
+            'endFrame' : partial_frames_needed - NOT_OVERLAPPING_FRAME,
+            'mediaType': ONLY_VIDEO_MEDIA_TYPE }
         clips_info.append(clip_info)
     return clips_info
+
+
+def add_gameplay_to_hook(highlights_times, video_items, project_handler, media_pool_handler):
+    """
+    Bien 👍
+    """
+    gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
+    gameplay_clips_info = generate_clip_info_list_from_highlights(
+        gameplay_asset, highlights_times,
+        HOOK_TRACK_GAMEPLAY, project_handler)
+    logger.info(f'gameplay_clips_info {gameplay_clips_info}')
+    media_pool_handler.AppendToTimeline(gameplay_clips_info)
+
+
+def add_camera_to_hook(highlights_times, video_items, project_handler, media_pool_handler):
+    camera_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMERA, video_items)
+    camera_clips_info = generate_clip_info_list_from_highlights(
+        camera_asset, highlights_times,
+        HOOK_TRACK_CAMERA, project_handler)
+    logger.info(f'camera_clips_info {camera_clips_info}')
+    media_pool_handler.AppendToTimeline(camera_clips_info)
+    """
+    camera_items = media_pool_handler.AppendToTimeline(camera_clips_info)
+    for timeline_item in camera_items:
+        for property in CAMERA_PROPERTIES:
+            timeline_item.SetProperty(*property)
+    """
+
+
+def add_camframe_to_hook(highlights_times, video_items, project_handler, media_pool_handler):
+    camframe_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMFRAME, video_items)
+    camframe_clips_info = generate_camframe_clip_info(
+        camframe_asset, highlights_times,
+        HOOK_TRACK_CAMFRAME, project_handler)
+    logger.info(f'camframe_clips_info {camframe_clips_info}')
+    media_pool_handler.AppendToTimeline(camframe_clips_info)
 
 
 def create_hook(highlights_times, video_items, project_handler, media_pool_handler):
@@ -404,34 +445,9 @@ def create_hook(highlights_times, video_items, project_handler, media_pool_handl
     """
     switch_to_timeline(TIMELINE_NAME_HOOK, project_handler)
     logger.info(f'Hook Hightlights Timeranges: {highlights_times}')
-    gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
-    camera_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMERA, video_items)
-    camframe_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMFRAME, video_items)
 
-    gameplay_clips_info = generate_clip_info_list_from_highlights(
-        gameplay_asset, highlights_times,
-        HOOK_TRACK_GAMEPLAY, project_handler)
-    camera_clips_info = generate_clip_info_list_from_highlights(
-        camera_asset, highlights_times,
-        HOOK_TRACK_CAMERA, project_handler)
-    camframe_clips_info = generate_camframe_clip_info(
-        camframe_asset, highlights_times,
-        HOOK_TRACK_CAMFRAME, project_handler)
-    logger.info(f'gameplay_clips_info {gameplay_clips_info}')
-    logger.info(f'camera_clips_info {camera_clips_info}')
-    logger.info(f'camframe_clips_info {camframe_clips_info}')
+    add_camframe_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
 
-    reset_playhead_position(project_handler)
-    media_pool_handler.AppendToTimeline(camframe_clips_info)
-    reset_playhead_position(project_handler)
-    camera_items = media_pool_handler.AppendToTimeline(camera_clips_info)
-    reset_playhead_position(project_handler)
-    media_pool_handler.AppendToTimeline(gameplay_clips_info)
-
-    reset_playhead_position(project_handler)
-    for timeline_item in camera_items:
-        for property in CAMERA_PROPERTIES:
-            timeline_item.SetProperty(*property)
     reset_playhead_position(project_handler)
 
 
