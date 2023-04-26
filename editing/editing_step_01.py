@@ -301,22 +301,23 @@ def reset_playhead_position(project_handler):
     wait_for(SECONDS_TO_WAIT_FOR_PLAYHEAD_REPOSITION, INFO_MESSAGE_REPOSITIONING_PLAYHEAD)
 
 
-def get_track_index(track_name, project_handler):
+def get_track_index(track_name, project_handler, track_type):
     """
     Si no se encuentra, por defecto retorna la primera.
     """
     current_timeline = project_handler.GetCurrentTimeline()
     track_index = 1
-    track_count = current_timeline.GetTrackCount(TRACK_TYPE_VIDEO)
+    track_count = current_timeline.GetTrackCount(track_type)
     for index in range(1, track_count+1):
-        current_track_name = current_timeline.GetTrackName(TRACK_TYPE_VIDEO, index)
+        current_track_name = current_timeline.GetTrackName(track_type, index)
         if current_track_name == track_name:
             track_index = index
             break
     return track_index
 
 
-def generate_clip_info_list_from_highlights(clip, highlights, track, project_handler):
+def generate_clip_info_list_from_highlights(clip, highlights, track, project_handler,
+                                            media_type=None, track_type=TRACK_TYPE_VIDEO):
     """
     Obtiene una lista de directorios con información del media clip entendible por
     DaVinci Resolve. Esta información detalla qué partes del clip dado se agregarán
@@ -326,6 +327,8 @@ def generate_clip_info_list_from_highlights(clip, highlights, track, project_han
         highlights (list): Rangos de tiempo por convetir a clip info.
         track (str): Nombre del track del timeline donde se desea agregar el clip.
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_type (int): Valor opcional entero para usar constantes media type del api de davinci resolve.
+        track_type (str): Valor opcional cadena para usar constantes track type del api de davinci resolve.
     Returns:
         dict: Lista de directorios con información del clip a importar.
     """
@@ -335,13 +338,14 @@ def generate_clip_info_list_from_highlights(clip, highlights, track, project_han
         end_timestring = highlight[1] # el segundo elemento siempre es el final
         start_frame = timestring_to_second(start_timestring)*FPS
         end_frame = timestring_to_second(end_timestring)*FPS - NOT_OVERLAPPING_FRAME
-        track_index = get_track_index(track, project_handler)
+        track_index = get_track_index(track, project_handler, track_type)
         clip_info = {
             'mediaPoolItem': clip,
             'trackIndex': track_index,
-            # 'mediaType': ONLY_VIDEO_MEDIA_TYPE,
             'startFrame' : start_frame,
             'endFrame' : end_frame }
+        if media_type:
+            clip_info['mediaType'] = media_type
         clips_info.append(clip_info)
         logger.info(f'preparing {(end_frame - start_frame + NOT_OVERLAPPING_FRAME) / 30}' + \
                     f'sec of {clip.GetName()} clip to add to {track} track')
@@ -383,7 +387,7 @@ def generate_camframe_clip_info(camframe_clip, highlights, track, project_handle
     logger.info(f'is_partial_camframe_needed {is_partial_camframe_needed}')
 
     clips_info = []
-    track_index = get_track_index(track, project_handler)
+    track_index = get_track_index(track, project_handler, TRACK_TYPE_VIDEO)
     for _ in range(number_of_full_camframes_needed):
         clip_info = {
             'mediaPoolItem': camframe_clip,
@@ -417,8 +421,7 @@ def add_gameplay_to_hook(highlights_times, video_items, project_handler, media_p
     """
     gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
     gameplay_clips_info = generate_clip_info_list_from_highlights(
-        gameplay_asset, highlights_times,
-        HOOK_TRACK_GAMEPLAY, project_handler)
+        gameplay_asset, highlights_times, HOOK_TRACK_GAMEPLAY, project_handler, track_type=TRACK_TYPE_VIDEO)
     logger.info(f'gameplay_clips_info {gameplay_clips_info}')
     media_pool_handler.AppendToTimeline(gameplay_clips_info)
 
@@ -435,8 +438,7 @@ def add_camera_to_hook(highlights_times, video_items, project_handler, media_poo
     """
     camera_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMERA, video_items)
     camera_clips_info = generate_clip_info_list_from_highlights(
-        camera_asset, highlights_times,
-        HOOK_TRACK_CAMERA, project_handler)
+        camera_asset, highlights_times, HOOK_TRACK_CAMERA, project_handler, track_type=TRACK_TYPE_VIDEO)
     logger.info(f'camera_clips_info {camera_clips_info}')
     camera_items = media_pool_handler.AppendToTimeline(camera_clips_info)
     for timeline_item in camera_items:
@@ -455,13 +457,29 @@ def add_camframe_to_hook(highlights_times, video_items, project_handler, media_p
     """
     camframe_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMFRAME, video_items)
     camframe_clips_info = generate_camframe_clip_info(
-        camframe_asset, highlights_times,
-        HOOK_TRACK_CAMFRAME, project_handler)
+        camframe_asset, highlights_times, HOOK_TRACK_CAMFRAME, project_handler)
     logger.info(f'camframe_clips_info {camframe_clips_info}')
     media_pool_handler.AppendToTimeline(camframe_clips_info)
 
 
-def create_hook(highlights_times, video_items, project_handler, media_pool_handler):
+def add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool_handler):
+    """
+    Agrega el audio del micrófono para stustituir el de la videograbación de la cámara
+    en el gancho del video.
+    Args:
+        highlights_times (list): Rangos de tiempo de las partes más emocionantes del video.
+        video_items (list): Lista de assets de video del media pool.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
+    micro_asset = get_asset_by_name(ASSET_AUDIO_NAME_MICRO, audio_items)
+    micro_clips_info = generate_clip_info_list_from_highlights(
+        micro_asset, highlights_times, HOOK_TRACK_MIC, project_handler, track_type=TRACK_TYPE_AUDIO)
+    logger.info(f'micro_clips_info {micro_clips_info}')
+    media_pool_handler.AppendToTimeline(micro_clips_info)
+
+
+def create_hook(highlights_times, video_items, audio_items, project_handler, media_pool_handler):
     """
     Crear el gancho inicial del video a partir de una lista de rangos de tiempo,
     cada elemento de la lista, a su vez es otra lista que solo pueden tener
@@ -479,6 +497,8 @@ def create_hook(highlights_times, video_items, project_handler, media_pool_handl
     add_gameplay_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
     add_camera_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
     add_camframe_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
+    add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool_handler)
+    reset_playhead_position(project_handler)
 
 
 def main():
@@ -521,7 +541,7 @@ def main():
     logger.info(f'Media Pool Items Loaded: {audio_items}, {image_items}, {video_items}')
     # crear hook del video
     hook_timeranges = params['gameplay_details']['hook']
-    create_hook(hook_timeranges, video_items, project, media_pool)
+    create_hook(hook_timeranges, video_items, audio_items, project, media_pool)
 
     # guardar cambios
     project_manager.SaveProject()
