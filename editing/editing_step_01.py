@@ -61,7 +61,9 @@ HOOK_TRACK_CAMERA = 'camera'
 HOOK_TRACK_CAMFRAME = 'camframe'
 HOOK_TRACK_MIC = 'mic'
 HOOK_TRACK_TITLE = 'title'
+INTRO_TRACK = 'intro'
 START_TIMECODE = '01:00:00:00'
+START_FRAME = 0
 CAMERA_PROPERTIES = [
     ('ZoomX', 0.285),
     ('ZoomY', 0.285),
@@ -531,6 +533,58 @@ def create_hook(highlights_times, video_items, audio_items,
     reset_playhead_position(project_handler)
 
 
+def generate_clip_info(clip, track, project_handler,
+                       media_type=None, track_type=TRACK_TYPE_VIDEO):
+    """
+    Obtiene información del media clip en cuestión de forma entendible por DaVinci Resolve.
+    Args:
+        clip (obj): Media pool item del api de davinci resolve.
+        track (str): Nombre del track del timeline donde se desea agregar el clip.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_type (int): Valor opcional entero para usar constantes media type del api de davinci resolve.
+        track_type (str): Valor opcional cadena para usar constantes track type del api de davinci resolve.
+    Returns:
+        dict: Lista de directorios con información del clip a importar.
+    """
+    track_index = get_track_index(track, project_handler, track_type)
+    clip_properties = clip.GetClipProperty()
+    clip_info = {
+        'mediaPoolItem': clip,
+        'trackIndex': track_index,
+        'startFrame' : START_FRAME,
+        'endFrame' : clip_properties['End'] }
+    logger.info(f'preparing {clip.GetName()} clip to add to {track} track')
+    return clip_info
+
+
+def add_intro(video_items, project_handler, media_pool_handler):
+    """
+    Agrega el clip del intro en la línea de tiempo actual.
+    Args:
+        video_items (list): Lista de assets de video del media pool.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
+    intro_asset = get_asset_by_name(ASSET_VIDEO_NAME_INTRO, video_items)
+    intro_clip_info = generate_clip_info(
+        intro_asset, INTRO_TRACK, project_handler, track_type=TRACK_TYPE_VIDEO)
+    logger.info(f'intro_clip_info {intro_clip_info}')
+    media_pool_handler.AppendToTimeline([intro_clip_info])
+
+
+def create_intro(video_items, project_handler, media_pool_handler):
+    """
+    Importa el video de intro en su respectiva línea del tiempo.
+    Args:
+        video_items (list): Lista de assets de video del media pool.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
+    switch_to_timeline(TIMELINE_NAME_INTRO, project_handler)
+    add_intro(video_items, project_handler, media_pool_handler)
+    reset_playhead_position(project_handler)
+
+
 def main():
     # abrir davinci resolve
     open_davinci_resolve()
@@ -572,6 +626,7 @@ def main():
     # crear hook del video
     hook_timeranges = params['gameplay_details']['hook']
     create_hook(hook_timeranges, video_items, audio_items, project, media_pool, resolve)
+    create_intro(video_items, project, media_pool)
 
     # guardar cambios
     project_manager.SaveProject()
