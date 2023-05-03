@@ -65,6 +65,7 @@ INTRO_TRACK = 'intro'
 SUBJECT_TRACK_GAMEPLAY = 'gameplay'
 SUBJECT_TRACK_CAMERA = 'camera'
 SUBJECT_TRACK_CAMFRAME = 'camframe'
+SUBJECT_TRACK_MIC = 'mic'
 START_TIMECODE = '01:00:00:00'
 START_FRAME = 0
 CAMERA_PROPERTIES = [
@@ -642,6 +643,23 @@ def add_camframe_to_subject(gameplay_times, video_items, project_handler, media_
     media_pool_handler.AppendToTimeline(camframe_clips_info)
 
 
+def add_micro_to_subject(highlights_times, audio_items, project_handler, media_pool_handler):
+    """
+    Agrega el audio del micrófono para stustituir el de la videograbación de la cámara
+    en el gancho del video.
+    Args:
+        highlights_times (list): Rangos de tiempo de las partes más emocionantes del video.
+        video_items (list): Lista de assets de video del media pool.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
+    micro_asset = get_asset_by_name(ASSET_AUDIO_NAME_MICRO, audio_items)
+    micro_clips_info = generate_clip_info_list_from_highlights(
+        micro_asset, highlights_times, SUBJECT_TRACK_MIC, project_handler, track_type=TRACK_TYPE_AUDIO)
+    logger.info(f'micro_clips_info {micro_clips_info}')
+    media_pool_handler.AppendToTimeline(micro_clips_info)
+
+
 def create_subject(gameplay_times, video_items, audio_items,
                    project_handler, media_pool_handler):
     """
@@ -666,7 +684,7 @@ def create_subject(gameplay_times, video_items, audio_items,
     add_gameplay_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
     add_camera_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
     add_camframe_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
-    # add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool_handler)
+    add_micro_to_hook(gameplay_times, audio_items, project_handler, media_pool_handler)
     reset_playhead_position(project_handler)
 
 
