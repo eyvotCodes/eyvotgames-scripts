@@ -60,6 +60,7 @@ HOOK_TRACK_GAMEPLAY = 'gameplay'
 HOOK_TRACK_CAMERA = 'camera'
 HOOK_TRACK_CAMFRAME = 'camframe'
 HOOK_TRACK_MIC = 'mic'
+HOOK_TRACK_TITLE = 'title'
 START_TIMECODE = '01:00:00:00'
 CAMERA_PROPERTIES = [
     ('ZoomX', 0.285),
@@ -479,7 +480,34 @@ def add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool
     media_pool_handler.AppendToTimeline(micro_clips_info)
 
 
-def create_hook(highlights_times, video_items, audio_items, project_handler, media_pool_handler):
+def insert_text(text, project_handler, resolve_handler):
+    """
+    Agrega un texto en el track actual de la línea de tiempo actual.
+    Args:
+        text (str): Texto por agregar
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        resolve_handler (obj): Objeto para controlar la instancia de davinci resolve.
+    """
+    timeline = project_handler.GetCurrentTimeline()
+    timeline.InsertFusionTitleIntoTimeline("Text+")
+    switch_to_page(PAGE_FUSION_NAME)
+    fusion = resolve_handler.Fusion()
+    comp = fusion.GetCurrentComp()
+    template = comp.FindTool("Template")
+    comp.SetActiveTool(template)
+    template.SetInput("StyledText", text, 0)
+    resolve_handler.OpenPage("edit")
+
+
+def insert_title_in_hook():
+    """
+    TODO: Agregar texto para el gancho del video haciendo uso de la función insert_text.
+    """
+    pass
+
+
+def create_hook(highlights_times, video_items, audio_items,
+                project_handler, media_pool_handler, resolve_handler):
     """
     Crear el gancho inicial del video a partir de una lista de rangos de tiempo,
     cada elemento de la lista, a su vez es otra lista que solo pueden tener
@@ -489,8 +517,10 @@ def create_hook(highlights_times, video_items, audio_items, project_handler, med
     Args:
         highlights_times (list): Rangos de tiempo de las partes más emocionantes del video.
         video_items (list): Lista de assets de video del media pool.
+        audio_items (list): Lista de assets de audio del media pool.
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+        resolve_handler (obj): Objeto para controlar la instancia de davinci resolve.
     """
     switch_to_timeline(TIMELINE_NAME_HOOK, project_handler)
     logger.info(f'Hook Hightlights Timeranges: {highlights_times}')
@@ -541,7 +571,7 @@ def main():
     logger.info(f'Media Pool Items Loaded: {audio_items}, {image_items}, {video_items}')
     # crear hook del video
     hook_timeranges = params['gameplay_details']['hook']
-    create_hook(hook_timeranges, video_items, audio_items, project, media_pool)
+    create_hook(hook_timeranges, video_items, audio_items, project, media_pool, resolve)
 
     # guardar cambios
     project_manager.SaveProject()
