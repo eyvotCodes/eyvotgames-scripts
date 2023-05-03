@@ -590,7 +590,7 @@ def create_intro(video_items, project_handler, media_pool_handler):
 
 def add_gameplay_to_subject(gameplay_times, video_items, project_handler, media_pool_handler):
     """
-    Agrega los clips de gameplay iniciales para el gancho del video.
+    Agrega los clips de gameplay iniciales para el subject del video.
     Args:
         gameplay_times (list): Rangos de tiempo de las partes deseadas del video.
         video_items (list): Lista de assets de video del media pool.
@@ -603,6 +603,27 @@ def add_gameplay_to_subject(gameplay_times, video_items, project_handler, media_
         track_type=TRACK_TYPE_VIDEO)
     logger.info(f'gameplay_clips_info {gameplay_clips_info}')
     media_pool_handler.AppendToTimeline(gameplay_clips_info)
+
+
+def add_camera_to_subject(gameplay_times, video_items, project_handler, media_pool_handler):
+    """
+    Agrega los clips de cámara iniciales para el subject del video y los rezisea de forma
+    adecuada para gameplay.
+    Args:
+        gameplay_times (list): Rangos de tiempo de las partes más emocionantes del video.
+        video_items (list): Lista de assets de video del media pool.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
+    camera_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMERA, video_items)
+    camera_clips_info = generate_clip_info_list_from_highlights(
+        camera_asset, gameplay_times, SUBJECT_TRACK_CAMERA, project_handler,
+        track_type=TRACK_TYPE_VIDEO)
+    logger.info(f'camera_clips_info {camera_clips_info}')
+    camera_items = media_pool_handler.AppendToTimeline(camera_clips_info)
+    for timeline_item in camera_items:
+        for property in CAMERA_PROPERTIES:
+            timeline_item.SetProperty(*property)
 
 
 def create_subject(gameplay_times, video_items, audio_items,
@@ -627,7 +648,7 @@ def create_subject(gameplay_times, video_items, audio_items,
     switch_to_timeline(TIMELINE_NAME_SUBJECT, project_handler)
     logger.info(f'Gameplay Timeranges: {gameplay_times}')
     add_gameplay_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
-    # add_camera_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
+    add_camera_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
     # add_camframe_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
     # add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool_handler)
     reset_playhead_position(project_handler)
