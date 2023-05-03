@@ -610,7 +610,7 @@ def add_camera_to_subject(gameplay_times, video_items, project_handler, media_po
     Agrega los clips de cámara iniciales para el subject del video y los rezisea de forma
     adecuada para gameplay.
     Args:
-        gameplay_times (list): Rangos de tiempo de las partes más emocionantes del video.
+        gameplay_times (list): Rangos de tiempo de las partes deseadas del video.
         video_items (list): Lista de assets de video del media pool.
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
@@ -624,6 +624,22 @@ def add_camera_to_subject(gameplay_times, video_items, project_handler, media_po
     for timeline_item in camera_items:
         for property in CAMERA_PROPERTIES:
             timeline_item.SetProperty(*property)
+
+
+def add_camframe_to_subject(gameplay_times, video_items, project_handler, media_pool_handler):
+    """
+    Agrega el marco de la cámara para el gancho del video.
+    Args:
+        gameplay_times (list): Rangos de tiempo de las partes deseadas del video.
+        video_items (list): Lista de assets de video del media pool.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
+    camframe_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMFRAME, video_items)
+    camframe_clips_info = generate_camframe_clip_info(
+        camframe_asset, gameplay_times, SUBJECT_TRACK_CAMFRAME, project_handler)
+    logger.info(f'camframe_clips_info {camframe_clips_info}')
+    media_pool_handler.AppendToTimeline(camframe_clips_info)
 
 
 def create_subject(gameplay_times, video_items, audio_items,
@@ -649,7 +665,7 @@ def create_subject(gameplay_times, video_items, audio_items,
     logger.info(f'Gameplay Timeranges: {gameplay_times}')
     add_gameplay_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
     add_camera_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
-    # add_camframe_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
+    add_camframe_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
     # add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool_handler)
     reset_playhead_position(project_handler)
 
