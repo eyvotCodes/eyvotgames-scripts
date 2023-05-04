@@ -4,9 +4,9 @@ from pynput import mouse, keyboard
 def on_click(x, y, button, pressed):
     if pressed:
         if button == mouse.Button.left:
-            print(f'L Click {{x:{int(x)}, y:{int(y)}}}')
+            print(f'L Click {{"x":{int(x)}, "y":{int(y)}}}')
         elif button == mouse.Button.right:
-            print(f'R Click {{x:{int(x)}, y:{int(y)}}}')
+            print(f'R Click {{"x":{int(x)}, "y":{int(y)}}}')
 
 def on_press(key):
     if key == keyboard.Key.enter:

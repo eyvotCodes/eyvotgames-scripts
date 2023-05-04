@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import ast
 import datetime
 import json
 import logging
@@ -8,6 +9,7 @@ import re
 import subprocess
 import DaVinciResolveScript as davinci_resolve_script
 
+from pynput.mouse import Button, Controller
 from tqdm import tqdm
 
 
@@ -81,11 +83,30 @@ CAMERA_PROPERTIES = [
 CAMFRAME_PROPERTIES = [
     ('CompositeMode', 6)]
 
+# mouse manual actions
+MANUAL_ACTIONS_SECONDS_OF_DELAY = 3 # es alto para evitar conflictos con el autosaving
+MANUAL_ACTIONS_FOR_HOOK = """
+L Click {"x":1250, "y":43}
+L Click {"x":1261, "y":45}
+L Click {"x":807, "y":912}
+R Click {"x":823, "y":912}
+L Click {"x":858, "y":926}
+L Click {"x":816, "y":673}
+R Click {"x":825, "y":675}
+L Click {"x":836, "y":682}
+L Click {"x":822, "y":737}
+R Click {"x":838, "y":734}
+L Click {"x":855, "y":744}
+L Click {"x":730, "y":861}
+L Click {"x":1332, "y":44}
+"""
+
 # info messages
 INFO_MESSAGE_LOADING_DAVINCI_RESOLVE = 'Abriendo DaVinci Resolve'
 INFO_MESSAGE_EXITING_DAVINCI_RESOLVE = 'Cerrando DaVinci Resolve'
 INFO_MESSAGE_SAVING_PROJECT  = 'Guardando cambios'
 INFO_MESSAGE_REPOSITIONING_PLAYHEAD  = 'Reposicionando PlayHead'
+INFO_MESSAGE_PROCESSING_MANUAL_ACTIONS = 'Procesando Acciones Manuales Simuladas'
 
 # error messages
 ERROR_MESSAGE_JSON_FILE_NOT_FOUND = 'No se pudo encontrar el archivo JSON.'
@@ -148,6 +169,25 @@ def wait_for(seconds, message):
     """
     for _ in tqdm(range(seconds), desc=message):
         time.sleep(1)
+
+
+def process_manual_actions(actions):
+    mouse = Controller()
+    clicks = actions.split('\n')
+    clicks = list(filter(bool, clicks)) # eliminar cadenaas vacías
+    logger.info(f'Manual Actions to Process: {clicks}')
+    for click in tqdm(clicks, desc=INFO_MESSAGE_PROCESSING_MANUAL_ACTIONS, unit='click'):
+        time.sleep(MANUAL_ACTIONS_SECONDS_OF_DELAY)
+        click = click.strip()
+        if click.startswith('L'):
+            button = Button.left
+        elif click.startswith('R'):
+            button = Button.right
+        else:
+            continue
+        coords = eval(click[7:])
+        mouse.position = (coords['x'], coords['y'])
+        mouse.click(button, 1)
 
 
 def open_davinci_resolve():
@@ -538,7 +578,7 @@ def create_hook(highlights_times, video_items, audio_items,
     add_camera_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
     add_camframe_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
     add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool_handler)
-    reset_playhead_position(project_handler)
+    process_manual_actions(MANUAL_ACTIONS_FOR_HOOK)
 
 
 def generate_clip_info(clip, track, project_handler,
@@ -879,10 +919,10 @@ def main():
     hook_timeranges = params['gameplay_details']['hook']
     subject_timeranges = params['gameplay_details']['subject']
     create_hook(hook_timeranges, video_items, audio_items, project, media_pool, resolve)
-    create_intro(video_items, project, media_pool)
-    create_subject(subject_timeranges, video_items, audio_items, project, media_pool)
+    #create_intro(video_items, project, media_pool)
+    #create_subject(subject_timeranges, video_items, audio_items, project, media_pool)
     #   create_content(project, media_pool)
-    create_canvas(video_items, project, media_pool)
+    #create_canvas(video_items, project, media_pool)
     #   create_main(project, media_pool)
 
     # guardar cambios
