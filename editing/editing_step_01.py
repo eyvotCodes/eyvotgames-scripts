@@ -832,9 +832,8 @@ def create_main(project_handler, media_pool_handler):
     H169FHD_items = get_H169FHD_media_pool_dir_items(media_pool_handler)
     add_timeline(TIMELINE_NAME_CONTENT, MAIN_CONTENT_TRACK, H169FHD_items,
                  project_handler, media_pool_handler)
-    canvas_start_timecode = '01:01:00:00'
-    add_timeline_in_timecode(TIMELINE_NAME_CANVAS, MAIN_CANVAS_TRACK, canvas_start_timecode,
-                             H169FHD_items, project_handler, media_pool_handler)
+    add_timeline(TIMELINE_NAME_CANVAS, MAIN_CANVAS_TRACK, H169FHD_items,
+                 project_handler, media_pool_handler)
     reset_playhead_position(project_handler)
 
 
@@ -882,9 +881,9 @@ def main():
     create_hook(hook_timeranges, video_items, audio_items, project, media_pool, resolve)
     create_intro(video_items, project, media_pool)
     create_subject(subject_timeranges, video_items, audio_items, project, media_pool)
-    create_content(project, media_pool)
+    #   create_content(project, media_pool)
     create_canvas(video_items, project, media_pool)
-    create_main(project, media_pool)
+    #   create_main(project, media_pool)
 
     # guardar cambios
     project_manager.SaveProject()
