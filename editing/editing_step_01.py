@@ -66,6 +66,7 @@ SUBJECT_TRACK_GAMEPLAY = 'gameplay'
 SUBJECT_TRACK_CAMERA = 'camera'
 SUBJECT_TRACK_CAMFRAME = 'camframe'
 SUBJECT_TRACK_MIC = 'mic'
+CONTENT_TRACK_GAMEPLAY = 'gameplay'
 START_TIMECODE = '01:00:00:00'
 START_FRAME = 0
 CAMERA_PROPERTIES = [
@@ -688,6 +689,57 @@ def create_subject(gameplay_times, video_items, audio_items,
     reset_playhead_position(project_handler)
 
 
+def get_H169FHD_media_pool_dir_items(media_pool_handler):
+    """
+    Importa toda la media compatible dentro de una lista de rutas del disco duro, a un
+    directorio determinado del media pool.
+    Args:
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    Raises:
+        Exception: Si no existe el directorio dentro del media pool.
+    """
+    root_dir = media_pool_handler.GetRootFolder()
+    root_subdirs = root_dir.GetSubFolderList()
+    horizontal_video_dir = None
+    for subdir in root_subdirs:
+        if subdir.GetName() == HORIZONTAL_VIDEO_MEDIA_DIR:
+            horizontal_video_dir = subdir
+    if not horizontal_video_dir:
+        raise Exception(ERROR_MESSAGE_MEDIA_DIR_NOT_FOUND + '\n' + HORIZONTAL_VIDEO_MEDIA_DIR)
+    media_pool_handler.SetCurrentFolder(horizontal_video_dir)
+    items = horizontal_video_dir.GetClipList()
+    return items
+
+
+def add_timeline(timeline, H169FHD_items, project_handler, media_pool_handler):
+    """
+    Agrega una línea del tiempo del media pool en la línea de tiempo actual.
+    Args:
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
+    timeline_asset = get_asset_by_name(timeline, H169FHD_items)
+    intro_clip_info = generate_clip_info(
+        timeline_asset, CONTENT_TRACK_GAMEPLAY, project_handler, track_type=TRACK_TYPE_VIDEO)
+    logger.info(f'intro_clip_info {intro_clip_info}')
+    media_pool_handler.AppendToTimeline([intro_clip_info])
+
+
+def create_content(project_handler, media_pool_handler):
+    """
+    Crea el contenido del video, vinculando hook, intro y content.
+    Args:
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
+    switch_to_timeline(TIMELINE_NAME_CONTENT, project_handler)
+    H169FHD_items = get_H169FHD_media_pool_dir_items(media_pool_handler)
+    add_timeline(TIMELINE_NAME_HOOK, H169FHD_items, project_handler, media_pool_handler)
+    add_timeline(TIMELINE_NAME_INTRO, H169FHD_items, project_handler, media_pool_handler)
+    add_timeline(TIMELINE_NAME_SUBJECT, H169FHD_items, project_handler, media_pool_handler)
+    reset_playhead_position(project_handler)
+
+
 def main():
     # abrir davinci resolve
     open_davinci_resolve()
@@ -732,6 +784,7 @@ def main():
     create_hook(hook_timeranges, video_items, audio_items, project, media_pool, resolve)
     create_intro(video_items, project, media_pool)
     create_subject(subject_timeranges, video_items, audio_items, project, media_pool)
+    create_content(project, media_pool)
 
     # guardar cambios
     project_manager.SaveProject()
