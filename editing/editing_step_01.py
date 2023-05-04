@@ -745,7 +745,7 @@ def create_content(project_handler, media_pool_handler):
 
 def add_outro(video_items, project_handler, media_pool_handler):
     """
-    Agrega el clip del intro en la línea de tiempo actual.
+    Agrega el clip del outro en la línea de tiempo actual.
     Args:
         video_items (list): Lista de assets de video del media pool.
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
