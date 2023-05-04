@@ -68,6 +68,8 @@ SUBJECT_TRACK_CAMFRAME = 'camframe'
 SUBJECT_TRACK_MIC = 'mic'
 CONTENT_TRACK_GAMEPLAY = 'gameplay'
 OUTRO_TRACK = 'outro'
+MAIN_CANVAS_TRACK = 'canvas'
+MAIN_CONTENT_TRACK = 'content'
 START_TIMECODE = '01:00:00:00'
 START_FRAME = 0
 CAMERA_PROPERTIES = [
@@ -712,18 +714,19 @@ def get_H169FHD_media_pool_dir_items(media_pool_handler):
     return items
 
 
-def add_timeline(timeline, H169FHD_items, project_handler, media_pool_handler):
+def add_timeline(timeline, track, H169FHD_items, project_handler, media_pool_handler):
     """
     Agrega una línea del tiempo del media pool en la línea de tiempo actual.
     Args:
         timeline (str): Nombre de la línea del tiempo que se desea agregar.
+        track (str): Nombre del track donde se desea agregar la línea del tiempo.
         H169FHD_items (list): Lista de media pool itemas correspondientes al directorio H16.9FHD.
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
     timeline_asset = get_asset_by_name(timeline, H169FHD_items)
     intro_clip_info = generate_clip_info(
-        timeline_asset, CONTENT_TRACK_GAMEPLAY, project_handler, track_type=TRACK_TYPE_VIDEO)
+        timeline_asset, track, project_handler, track_type=TRACK_TYPE_VIDEO)
     logger.info(f'intro_clip_info {intro_clip_info}')
     media_pool_handler.AppendToTimeline([intro_clip_info])
 
@@ -737,9 +740,12 @@ def create_content(project_handler, media_pool_handler):
     """
     switch_to_timeline(TIMELINE_NAME_CONTENT, project_handler)
     H169FHD_items = get_H169FHD_media_pool_dir_items(media_pool_handler)
-    add_timeline(TIMELINE_NAME_HOOK, H169FHD_items, project_handler, media_pool_handler)
-    add_timeline(TIMELINE_NAME_INTRO, H169FHD_items, project_handler, media_pool_handler)
-    add_timeline(TIMELINE_NAME_SUBJECT, H169FHD_items, project_handler, media_pool_handler)
+    add_timeline(TIMELINE_NAME_HOOK, CONTENT_TRACK_GAMEPLAY, H169FHD_items,
+                 project_handler, media_pool_handler)
+    add_timeline(TIMELINE_NAME_INTRO, CONTENT_TRACK_GAMEPLAY, H169FHD_items,
+                 project_handler, media_pool_handler)
+    add_timeline(TIMELINE_NAME_SUBJECT, CONTENT_TRACK_GAMEPLAY, H169FHD_items,
+                 project_handler, media_pool_handler)
     reset_playhead_position(project_handler)
 
 
@@ -768,6 +774,67 @@ def create_canvas(video_items, project_handler, media_pool_handler):
     """
     switch_to_timeline(TIMELINE_NAME_CANVAS, project_handler)
     add_outro(video_items, project_handler, media_pool_handler)
+    reset_playhead_position(project_handler)
+
+
+def generate_clip_info_for_timecode(clip, track, start_timecode,
+                                    project_handler, media_type=None, track_type=TRACK_TYPE_VIDEO):
+    """
+    Obtiene información del media clip en cuestión de forma entendible por DaVinci Resolve.
+    Args:
+        clip (obj): Media pool item del api de davinci resolve.
+        track (str): Nombre del track del timeline donde se desea agregar el clip.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_type (int): Valor opcional entero para usar constantes media type del api de davinci resolve.
+        track_type (str): Valor opcional cadena para usar constantes track type del api de davinci resolve.
+    Returns:
+        dict: Lista de directorios con información del clip a importar.
+    """
+    track_index = get_track_index(track, project_handler, track_type)
+    clip_properties = clip.GetClipProperty()
+    clip_info = {
+        'mediaPoolItem': clip,
+        'trackIndex': track_index,
+        'startFrame' : START_FRAME,
+        'endFrame' : clip_properties['End'] }
+    logger.info(f'preparing {clip.GetName()} clip to add to {track} track')
+    return clip_info
+
+
+def add_timeline_in_timecode(timeline, track, start_timecode, H169FHD_items,
+                             project_handler, media_pool_handler):
+    """
+    Agrega una línea del tiempo del media pool en la línea de tiempo actual.
+    Args:
+        timeline (str): Nombre de la línea del tiempo que se desea agregar.
+        track (str): Nombre del track donde se desea agregar la línea del tiempo.
+        start_timecode (str): Timecode de inicio.
+        H169FHD_items (list): Lista de media pool itemas correspondientes al directorio H16.9FHD.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
+    timeline_asset = get_asset_by_name(timeline, H169FHD_items)
+    intro_clip_info = generate_clip_info_for_timecode(
+        timeline_asset, track, start_timecode, project_handler,
+        track_type=TRACK_TYPE_VIDEO)
+    logger.info(f'intro_clip_info {intro_clip_info}')
+    media_pool_handler.AppendToTimeline([intro_clip_info])
+
+
+def create_main(project_handler, media_pool_handler):
+    """
+    Crea el contenido del video, vinculando hook, intro y content.
+    Args:
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
+    switch_to_timeline(TIMELINE_NAME_MAIN, project_handler)
+    H169FHD_items = get_H169FHD_media_pool_dir_items(media_pool_handler)
+    add_timeline(TIMELINE_NAME_CONTENT, MAIN_CONTENT_TRACK, H169FHD_items,
+                 project_handler, media_pool_handler)
+    canvas_start_timecode = '01:01:00:00'
+    add_timeline_in_timecode(TIMELINE_NAME_CANVAS, MAIN_CANVAS_TRACK, canvas_start_timecode,
+                             H169FHD_items, project_handler, media_pool_handler)
     reset_playhead_position(project_handler)
 
 
@@ -817,6 +884,7 @@ def main():
     create_subject(subject_timeranges, video_items, audio_items, project, media_pool)
     create_content(project, media_pool)
     create_canvas(video_items, project, media_pool)
+    create_main(project, media_pool)
 
     # guardar cambios
     project_manager.SaveProject()
