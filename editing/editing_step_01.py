@@ -107,6 +107,7 @@ INFO_MESSAGE_EXITING_DAVINCI_RESOLVE = 'Cerrando DaVinci Resolve'
 INFO_MESSAGE_SAVING_PROJECT  = 'Guardando cambios'
 INFO_MESSAGE_REPOSITIONING_PLAYHEAD  = 'Reposicionando PlayHead'
 INFO_MESSAGE_PROCESSING_MANUAL_ACTIONS = 'Procesando Acciones Manuales Simuladas'
+INFO_MESSAGE_WAIT_FOR_USER_INPUT = 'Presione cualquier tecla para continuar...'
 
 # error messages
 ERROR_MESSAGE_JSON_FILE_NOT_FOUND = 'No se pudo encontrar el archivo JSON.'
@@ -188,6 +189,11 @@ def process_manual_actions(actions):
         coords = eval(click[7:])
         mouse.position = (coords['x'], coords['y'])
         mouse.click(button, 1)
+
+
+def wait_for_user_input():
+    print(INFO_MESSAGE_WAIT_FOR_USER_INPUT)
+    input()
 
 
 def open_davinci_resolve():
@@ -557,7 +563,8 @@ def insert_title_in_hook():
 
 
 def create_hook(highlights_times, video_items, audio_items,
-                project_handler, media_pool_handler, resolve_handler):
+                project_handler, media_pool_handler, resolve_handler,
+                automate_actions):
     """
     Crear el gancho inicial del video a partir de una lista de rangos de tiempo,
     cada elemento de la lista, a su vez es otra lista que solo pueden tener
@@ -578,7 +585,10 @@ def create_hook(highlights_times, video_items, audio_items,
     add_camera_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
     add_camframe_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
     add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool_handler)
-    process_manual_actions(MANUAL_ACTIONS_FOR_HOOK)
+    if automate_actions:
+        process_manual_actions(MANUAL_ACTIONS_FOR_HOOK)
+    else:
+        wait_for_user_input()
 
 
 def generate_clip_info(clip, track, project_handler,
@@ -918,7 +928,8 @@ def main():
     # crear hook del video
     hook_timeranges = params['gameplay_details']['hook']
     subject_timeranges = params['gameplay_details']['subject']
-    create_hook(hook_timeranges, video_items, audio_items, project, media_pool, resolve)
+    automate_actions = params['gameplay_details']['enable_automated_manual_actions']
+    create_hook(hook_timeranges, video_items, audio_items, project, media_pool, resolve, automate_actions)
     #create_intro(video_items, project, media_pool)
     #create_subject(subject_timeranges, video_items, audio_items, project, media_pool)
     #   create_content(project, media_pool)
