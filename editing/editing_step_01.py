@@ -100,6 +100,21 @@ L Click {"x":855, "y":744}
 L Click {"x":730, "y":861}
 L Click {"x":1332, "y":44}
 """
+MANUAL_ACTIONS_FOR_SUBJECT = """
+L Click {"x":1228, "y":41}
+L Click {"x":1254, "y":43}
+L Click {"x":805, "y":858}
+R Click {"x":817, "y":858}
+L Click {"x":846, "y":867}
+L Click {"x":810, "y":644}
+R Click {"x":826, "y":642}
+L Click {"x":850, "y":656}
+L Click {"x":805, "y":677}
+R Click {"x":821, "y":679}
+L Click {"x":842, "y":690}
+L Click {"x":725, "y":799}
+L Click {"x":1334, "y":42}
+"""
 
 # info messages
 INFO_MESSAGE_LOADING_DAVINCI_RESOLVE = 'Abriendo DaVinci Resolve'
@@ -715,7 +730,7 @@ def add_micro_to_subject(highlights_times, audio_items, project_handler, media_p
 
 
 def create_subject(gameplay_times, video_items, audio_items,
-                   project_handler, media_pool_handler):
+                   project_handler, media_pool_handler, automate_actions):
     """
     Crear el subject del video a partir de una lista de rangos de tiempo, cada elemento
     de la lista, a su vez es otra lista que solo pueden tener 2 valores cadena en formato
@@ -739,7 +754,10 @@ def create_subject(gameplay_times, video_items, audio_items,
     add_camera_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
     add_camframe_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
     add_micro_to_hook(gameplay_times, audio_items, project_handler, media_pool_handler)
-    reset_playhead_position(project_handler)
+    if automate_actions:
+        process_manual_actions(MANUAL_ACTIONS_FOR_SUBJECT)
+    else:
+        wait_for_user_input()
 
 
 def get_H169FHD_media_pool_dir_items(media_pool_handler):
@@ -930,8 +948,8 @@ def main():
     subject_timeranges = params['gameplay_details']['subject']
     automate_actions = params['gameplay_details']['enable_automated_manual_actions']
     create_hook(hook_timeranges, video_items, audio_items, project, media_pool, resolve, automate_actions)
-    #create_intro(video_items, project, media_pool)
-    #create_subject(subject_timeranges, video_items, audio_items, project, media_pool)
+    create_intro(video_items, project, media_pool)
+    create_subject(subject_timeranges, video_items, audio_items, project, media_pool, automate_actions)
     #   create_content(project, media_pool)
     #create_canvas(video_items, project, media_pool)
     #   create_main(project, media_pool)
