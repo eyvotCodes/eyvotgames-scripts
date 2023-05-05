@@ -33,6 +33,7 @@ TRACK_TYPE_AUDIO = 'audio'
 TRACK_TYPE_VIDEO = 'video'
 ONLY_VIDEO_MEDIA_TYPE = 1
 ONLY_AUDIO_MEDIA_TYPE = 2
+COMPOSITE_MODE_DIFF = 3
 
 # media dirs
 HORIZONTAL_VIDEO_MEDIA_DIR = 'H16.9FHD'
@@ -72,6 +73,8 @@ CONTENT_TRACK_GAMEPLAY = 'gameplay'
 OUTRO_TRACK = 'outro'
 MAIN_CANVAS_TRACK = 'canvas'
 MAIN_CONTENT_TRACK = 'content'
+H169HD_MAIN_TRACK = 'main'
+H169HD_WATERMARK_TRACK = 'watermark'
 START_TIMECODE = '01:00:00:00'
 START_FRAME = 0
 CAMERA_PROPERTIES = [
@@ -80,8 +83,8 @@ CAMERA_PROPERTIES = [
     ('CropLeft', 420),
     ('CropRight', 420),
     ('AnchorPointX', 1082)]
-CAMFRAME_PROPERTIES = [
-    ('CompositeMode', 6)]
+WATERMARK_PROPERTIES = [
+    ('CompositeMode', COMPOSITE_MODE_DIFF)]
 
 # mouse manual actions
 MANUAL_ACTIONS_SECONDS_OF_DELAY = 4 # es alto para evitar conflictos con el autosaving
@@ -188,6 +191,18 @@ def wait_for(seconds, message):
 
 
 def process_manual_actions(actions):
+    """
+    Simula acciones de click izquierdo y derecho. Para ello se pasa una cadena de
+    acciones, donde cada línea es una instrucción diferente de click. El formato
+    es el siguiente:
+    L Click {"x":10, "y":20}
+    R Click {"x":30, "y":40}
+    Las líneas que inician con L serán click izquierdo y las que inician con R
+    serán click derecho, para ambos casos se proporciona después de un espacio
+    un objeto JSON con las coordenadas donde se simulará el click.
+    Args:
+        actions (str): Cadena de acciones.
+    """
     mouse = Controller()
     clicks = actions.split('\n')
     clicks = list(filter(bool, clicks)) # eliminar cadenaas vacías
@@ -207,6 +222,12 @@ def process_manual_actions(actions):
 
 
 def wait_for_user_input():
+    """
+    Pausa la ejecución del programa hasta que el usuario presione la
+    tecla "enter".
+    Ideal para realizar acciones manuales intermedias durante el proceso
+    automatizado de edición.
+    """
     print(INFO_MESSAGE_WAIT_FOR_USER_INPUT)
     input()
 
@@ -906,6 +927,46 @@ def create_main(project_handler, media_pool_handler):
     wait_for_user_input()
 
 
+def generate_watermark_clip_info(watermark_clip, track, project_handler):
+    """
+    Obtiene información del media clip de marca de agua de forma entendible por DaVinci Resolve.
+    Args:
+        watermark_clip (obj): Clip de la marca de agua.
+        track (str): Nombre del track del timeline donde se desea agregar el clip.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+    Returns:
+        dict: Lista de directorios con información del clip a importar.
+    """
+    track_index = get_track_index(track, project_handler, TRACK_TYPE_VIDEO)
+    clip_info = {
+        'mediaPoolItem': watermark_clip,
+        'trackIndex': track_index }
+    return [clip_info]
+
+
+def create_H169FHD(image_items, project_handler, media_pool_handler):
+    """
+    Crea el contenido del video, vinculando contenido main y la marca de agua del canal.
+    Args:
+        image_items (list): Lista de assets de imágen del media pool.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
+    switch_to_timeline(TIMELINE_NAME, project_handler)
+    H169FHD_items = get_H169FHD_media_pool_dir_items(media_pool_handler)
+    add_timeline(TIMELINE_NAME_MAIN, H169HD_MAIN_TRACK, H169FHD_items,
+                 project_handler, media_pool_handler)
+    watermark_asset = get_asset_by_name(ASSET_IMAGE_NAME_WATERMARK, image_items)
+    watermark_info = generate_watermark_clip_info(
+        watermark_asset, H169HD_WATERMARK_TRACK, project_handler)
+    logger.info(f'watermark_info {watermark_info}')
+    watermark_items = media_pool_handler.AppendToTimeline(watermark_info)
+    for item in watermark_items:
+        for property in WATERMARK_PROPERTIES:
+            item.SetProperty(*property)
+    wait_for_user_input()
+
+
 def main():
     # abrir davinci resolve
     open_davinci_resolve()
@@ -954,6 +1015,7 @@ def main():
     create_content(project, media_pool)
     create_canvas(video_items, project, media_pool)
     create_main(project, media_pool)
+    create_H169FHD(image_items, project, media_pool)
 
     # guardar cambios
     project_manager.SaveProject()
