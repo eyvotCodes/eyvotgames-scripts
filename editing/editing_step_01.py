@@ -903,6 +903,7 @@ def create_main(project_handler, media_pool_handler):
     add_timeline(TIMELINE_NAME_CANVAS, MAIN_CANVAS_TRACK, H169FHD_items,
                  project_handler, media_pool_handler)
     reset_playhead_position(project_handler)
+    wait_for_user_input()
 
 
 def main():
@@ -950,9 +951,9 @@ def main():
     create_hook(hook_timeranges, video_items, audio_items, project, media_pool, resolve, automate_actions)
     create_intro(video_items, project, media_pool)
     create_subject(subject_timeranges, video_items, audio_items, project, media_pool, automate_actions)
-    #   create_content(project, media_pool)
-    #create_canvas(video_items, project, media_pool)
-    #   create_main(project, media_pool)
+    create_content(project, media_pool)
+    create_canvas(video_items, project, media_pool)
+    create_main(project, media_pool)
 
     # guardar cambios
     project_manager.SaveProject()
