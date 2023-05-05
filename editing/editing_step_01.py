@@ -84,7 +84,7 @@ CAMFRAME_PROPERTIES = [
     ('CompositeMode', 6)]
 
 # mouse manual actions
-MANUAL_ACTIONS_SECONDS_OF_DELAY = 3 # es alto para evitar conflictos con el autosaving
+MANUAL_ACTIONS_SECONDS_OF_DELAY = 4 # es alto para evitar conflictos con el autosaving
 MANUAL_ACTIONS_FOR_HOOK = """
 L Click {"x":1250, "y":43}
 L Click {"x":1261, "y":45}
