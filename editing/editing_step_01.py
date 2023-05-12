@@ -77,6 +77,10 @@ H169HD_MAIN_TRACK = 'main'
 H169HD_WATERMARK_TRACK = 'watermark'
 START_TIMECODE = '01:00:00:00'
 START_FRAME = 0
+SECONDS_OF_OUTRO_TRANSITION = 1.5
+OUTRO_TRANSFORM_SIZE = 0.325
+OUTRO_TRANSFORM_CENTER_X = 0.185
+OUTRO_TRANSFORM_CENTER_Y = 0.288
 CAMERA_PROPERTIES = [
     ('ZoomX', 0.285),
     ('ZoomY', 0.285),
@@ -135,6 +139,13 @@ ERROR_MESSAGE_MEDIA_DIR_NOT_FOUND = 'No se encontró el directorio en el Media P
 ERROR_MESSAGE_TIMELINE_NOT_FOUND = 'No se encontró el timeline en el proyecto.'
 ERROR_MESSAGE_ASSET_NOT_FOUND = 'No se encontró el asset en la lista dada.'
 ERROR_MESSAGE_INCORREC_TIMESTRIG_FORMAT = 'Formato de timestring hh:mm:ss incorrecto.'
+
+# guide messages
+GUIDE_MESSAGE_ADD_OUTRO_KEYFRAMES = 'Agrega los KeyFrames a\nCenter X Y  ◇ → ◆\nSize        ◇ → ◆'
+GUIDE_MESSAGE_ADD_OUTRO_TRANSFORM_NODE =\
+    'Coloca el nodo de transformación entre los nodos de entrada y salida'
+GUIDE_MESSAGE_ALIGN_CONTENT_WITH_CANVAS =\
+    'Alínea el final del Track Canvas con el final del Track Content'
 
 # logger config
 DEBUG_MODE = True
@@ -817,7 +828,8 @@ def add_timeline(timeline, track, H169FHD_items, project_handler, media_pool_han
     intro_clip_info = generate_clip_info(
         timeline_asset, track, project_handler, track_type=TRACK_TYPE_VIDEO)
     logger.info(f'intro_clip_info {intro_clip_info}')
-    media_pool_handler.AppendToTimeline([intro_clip_info])
+    items = media_pool_handler.AppendToTimeline([intro_clip_info])
+    return items[0]
 
 
 def create_content(project_handler, media_pool_handler):
@@ -910,20 +922,55 @@ def add_timeline_in_timecode(timeline, track, start_timecode, H169FHD_items,
     media_pool_handler.AppendToTimeline([intro_clip_info])
 
 
-def create_main(project_handler, media_pool_handler):
+def animate_content_to_outro_transition(item_content, item_canvas, resolve_handler):
+    """
+    Crea la animación de transición del contenido al outro del video.
+    Args:
+        item_content (obj): timeline item del contenido
+        item_canvas (obj): timeline item del canvas
+        resolve_handler (obj): Objeto para controlar la instancia de davinci resolve.
+    """
+    switch_to_page(PAGE_FUSION_NAME, resolve_handler)
+    fusion = resolve_handler.Fusion()
+    comp = fusion.GetCurrentComp()
+    animation_start_frame = item_content.GetDuration() - item_canvas.GetDuration()
+    animation_end_frame = animation_start_frame + FPS*SECONDS_OF_OUTRO_TRANSITION
+    logger.info(f'animation_start_frame: {animation_start_frame}')
+    logger.info(f'animation_end_frame: {animation_end_frame}')
+    transform = comp.AddTool("Transform")
+    comp.SetActiveTool(transform)
+
+    comp.CurrentTime = animation_start_frame
+    print(GUIDE_MESSAGE_ADD_OUTRO_KEYFRAMES)
+    wait_for_user_input()
+
+    comp.CurrentTime = animation_end_frame
+    print(GUIDE_MESSAGE_ADD_OUTRO_KEYFRAMES)
+    wait_for_user_input()
+    transform.SetInput("Size", OUTRO_TRANSFORM_SIZE, comp.CurrentTime)
+    transform.SetInput("Center", [OUTRO_TRANSFORM_CENTER_X, OUTRO_TRANSFORM_CENTER_Y], comp.CurrentTime)
+    print(GUIDE_MESSAGE_ADD_OUTRO_TRANSFORM_NODE)
+    wait_for_user_input()
+
+
+def create_main(project_handler, media_pool_handler, resolve_handler):
     """
     Crea el contenido del video, vinculando hook, intro y content.
     Args:
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+        resolve_handler (obj): Objeto para controlar la instancia de davinci resolve.
     """
     switch_to_timeline(TIMELINE_NAME_MAIN, project_handler)
     H169FHD_items = get_H169FHD_media_pool_dir_items(media_pool_handler)
-    add_timeline(TIMELINE_NAME_CONTENT, MAIN_CONTENT_TRACK, H169FHD_items,
-                 project_handler, media_pool_handler)
-    add_timeline(TIMELINE_NAME_CANVAS, MAIN_CANVAS_TRACK, H169FHD_items,
-                 project_handler, media_pool_handler)
+    item_content = add_timeline(TIMELINE_NAME_CONTENT, MAIN_CONTENT_TRACK, H169FHD_items,
+                                project_handler, media_pool_handler)
+    item_canvas = add_timeline(TIMELINE_NAME_CANVAS, MAIN_CANVAS_TRACK, H169FHD_items,
+                               project_handler, media_pool_handler)    
     reset_playhead_position(project_handler)
+    animate_content_to_outro_transition(item_content, item_canvas, resolve_handler)
+    switch_to_page(PAGE_EDIT_NAME, resolve_handler)
+    print(GUIDE_MESSAGE_ALIGN_CONTENT_WITH_CANVAS)
     wait_for_user_input()
 
 
@@ -964,7 +1011,6 @@ def create_H169FHD(image_items, project_handler, media_pool_handler):
     for item in watermark_items:
         for property in WATERMARK_PROPERTIES:
             item.SetProperty(*property)
-    wait_for_user_input()
 
 
 def main():
@@ -1014,7 +1060,7 @@ def main():
     create_subject(subject_timeranges, video_items, audio_items, project, media_pool, automate_actions)
     create_content(project, media_pool)
     create_canvas(video_items, project, media_pool)
-    create_main(project, media_pool)
+    create_main(project, media_pool, resolve)
     create_H169FHD(image_items, project, media_pool)
 
     # guardar cambios
