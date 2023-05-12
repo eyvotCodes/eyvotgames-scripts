@@ -154,6 +154,8 @@ GUIDE_MESSAGE_ADD_OUTRO_TRANSFORM_NODE =\
     'Coloca el nodo de transformación entre los nodos de entrada y salida'
 GUIDE_MESSAGE_ALIGN_CONTENT_WITH_CANVAS =\
     'Alínea el final del Track Canvas con el final del Track Content'
+GUIDE_MESSAGE_ALIGN_INTRO_WITH_HOOK_AND_SUBJECT =\
+    'Mueve el intro al Track de arriba y sobreponlo 14 FPS sobre el Hook y el Subject'
 
 # logger config
 DEBUG_MODE = True
@@ -852,6 +854,8 @@ def create_content(project_handler, media_pool_handler):
     add_timeline(TIMELINE_NAME_SUBJECT, CONTENT_TRACK_GAMEPLAY, H169FHD_items,
                  project_handler, media_pool_handler)
     reset_playhead_position(project_handler)
+    print(GUIDE_MESSAGE_ALIGN_INTRO_WITH_HOOK_AND_SUBJECT)
+    wait_for_user_input()
 
 
 def add_outro(video_items, project_handler, media_pool_handler):
