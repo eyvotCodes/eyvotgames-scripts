@@ -64,6 +64,7 @@ HOOK_TRACK_CAMERA = 'camera'
 HOOK_TRACK_CAMFRAME = 'camframe'
 HOOK_TRACK_MIC = 'mic'
 HOOK_TRACK_TITLE = 'title'
+HOOK_TITLE = 'Más adelante en este video...'
 INTRO_TRACK = 'intro'
 SUBJECT_TRACK_GAMEPLAY = 'gameplay'
 SUBJECT_TRACK_CAMERA = 'camera'
@@ -89,6 +90,13 @@ CAMERA_PROPERTIES = [
     ('AnchorPointX', 1082)]
 WATERMARK_PROPERTIES = [
     ('CompositeMode', COMPOSITE_MODE_DIFF)]
+HOOK_TITLE_PROPERTIES = [
+    ('ZoomX', 0.450),
+    ('ZoomY', 0.450),
+    ('AnchorPointX', -1110),
+    ('AnchorPointY', 915),
+    ('Opacity', 50)
+]
 
 # mouse manual actions
 MANUAL_ACTIONS_SECONDS_OF_DELAY = 4 # es alto para evitar conflictos con el autosaving
@@ -583,30 +591,24 @@ def add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool
     media_pool_handler.AppendToTimeline(micro_clips_info)
 
 
-def insert_text(text, project_handler, resolve_handler):
+def add_title_to_hook(project_handler, resolve_handler):
     """
-    Agrega un texto en el track actual de la línea de tiempo actual.
+    Agrega el texto de título del hook.
     Args:
-        text (str): Texto por agregar
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         resolve_handler (obj): Objeto para controlar la instancia de davinci resolve.
     """
     timeline = project_handler.GetCurrentTimeline()
-    timeline.InsertFusionTitleIntoTimeline("Text+")
-    switch_to_page(PAGE_FUSION_NAME)
+    title = timeline.InsertFusionTitleIntoTimeline('Text+')
+    for prop in HOOK_TITLE_PROPERTIES:
+        title.SetProperty(*prop)
+    switch_to_page(PAGE_FUSION_NAME, resolve_handler)
     fusion = resolve_handler.Fusion()
     comp = fusion.GetCurrentComp()
-    template = comp.FindTool("Template")
+    template = comp.FindTool('Template')
     comp.SetActiveTool(template)
-    template.SetInput("StyledText", text, 0)
-    resolve_handler.OpenPage("edit")
-
-
-def insert_title_in_hook():
-    """
-    TODO: Agregar texto para el gancho del video haciendo uso de la función insert_text.
-    """
-    pass
+    template.SetInput('StyledText', HOOK_TITLE, 0)
+    resolve_handler.OpenPage(PAGE_EDIT_NAME, resolve_handler)
 
 
 def create_hook(highlights_times, video_items, audio_items,
@@ -628,6 +630,8 @@ def create_hook(highlights_times, video_items, audio_items,
     """
     switch_to_timeline(TIMELINE_NAME_HOOK, project_handler)
     logger.info(f'Hook Hightlights Timeranges: {highlights_times}')
+    add_title_to_hook(project_handler, resolve_handler)
+    wait_for_user_input()
     add_gameplay_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
     add_camera_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
     add_camframe_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
