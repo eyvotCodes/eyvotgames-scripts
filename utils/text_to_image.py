@@ -124,49 +124,42 @@ def estilizar(texto, params=None):
 
 # -----------------------------------------------------
 
-"""
-import io
-import requests
+from PIL import Image
 
-# Define el emoji a convertir
-emoji = '🥶'
+def unir_imagenes_horizontalmente(imagenes, tamano_salida=160):
+    # Abrir todas las imágenes y obtener sus tamaños
+    imagenes_abiertas = [Image.open(img_path).convert("RGBA") for img_path in imagenes]
+    anchos = [img.width for img in imagenes_abiertas]
+    alturas = [img.height for img in imagenes_abiertas]
 
-# Define la URL de la imagen PNG de ese emoji
-url = f'https://twemoji.maxcdn.com/v/latest/72x72/{ord(emoji):x}.png'
+    # Calcular las dimensiones de la imagen de salida
+    ancho_salida = sum(anchos)
+    altura_salida = max(alturas)
 
-# Descarga la imagen de la URL y la guarda en un objeto BytesIO
-response = requests.get(url)
-image_bytes = io.BytesIO(response.content)
+    # Crear una imagen de salida en blanco
+    imagen_salida = Image.new("RGBA", (ancho_salida, altura_salida), (0, 0, 0, 0))
 
-# Guarda los bytes de la imagen en un archivo PNG
-with open('emoji.png', 'wb') as f:
-    f.write(image_bytes.getbuffer())
-"""
+    # Copiar las imágenes de entrada a la imagen de salida
+    posicion_x = 0
+    for img in imagenes_abiertas:
+        imagen_salida.paste(img, (posicion_x, 0))
+        posicion_x += img.width
+
+    # Redimensionar la imagen de salida al tamaño deseado
+    proporcion = tamano_salida / altura_salida
+    tamano_redimensionado = (int(ancho_salida * proporcion), tamano_salida)
+    imagen_salida = imagen_salida.resize(tamano_redimensionado)
+
+    # Guardar la imagen de salida en formato PNG sin fondo
+    imagen_salida.save("output.png", format="PNG")
+
+# Ejemplo de uso
+imagenes_input = [
+    "/Users/fleyva/Downloads/emojis/astonished-face_1f632.png",
+    "/Users/fleyva/Downloads/emojis/exploding-head_1f92f.png",
+    "/Users/fleyva/Downloads/emojis/cold-face_1f976.png",
+]
+
+unir_imagenes_horizontalmente(imagenes_input, tamano_salida=160)
 
 # -----------------------------------------------------
-
-from PIL import Image, ImageDraw, ImageFont
-import emoji
-
-def text_to_image(text):
-    # Create image with transparent background
-    img = Image.new('RGBA', (500, 500), (255, 255, 255, 0))
-    
-    # Load Apple Color Emoji font
-    font = ImageFont.truetype('/System/Library/Fonts/Apple Color Emoji.ttc', 64)
-    
-    # Draw text using emoji font
-    draw = ImageDraw.Draw(img)
-    draw.text((50, 50), text, font=font, fill=(0, 0, 0, 255))
-    
-    # Add a small value to each channel to prevent Pillow from converting to grayscale
-    r, g, b, a = img.split()
-    r = r.point(lambda i: i + 1)
-    g = g.point(lambda i: i + 1)
-    b = b.point(lambda i: i + 1)
-    img = Image.merge('RGBA', (r, g, b, a))
-    
-    # Save image
-    img.save('test.png')
-
-text_to_image('🥶')
