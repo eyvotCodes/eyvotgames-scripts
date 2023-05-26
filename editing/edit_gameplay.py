@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-import ast
 import datetime
 import json
 import logging
@@ -76,9 +75,12 @@ MAIN_CANVAS_TRACK = 'canvas'
 MAIN_CONTENT_TRACK = 'content'
 H169HD_MAIN_TRACK = 'main'
 H169HD_WATERMARK_TRACK = 'watermark'
+VIDEO_TYPE_GAMEPLAY = 'gameplay'
+VIDEO_TYPE_CLIP = 'clip'
+VIDEO_TYPE_SHORTS = 'shorts'
 START_TIMECODE = '01:00:00:00'
 START_FRAME = 0
-SECONDS_OF_OUTRO_TRANSITION = 1.5
+SECONDS_OF_OUTRO_TRANSITION = 1
 OUTRO_TRANSFORM_SIZE = 0.325
 OUTRO_TRANSFORM_CENTER_X = 0.185
 OUTRO_TRANSFORM_CENTER_Y = 0.288
@@ -93,8 +95,8 @@ WATERMARK_PROPERTIES = [
 HOOK_TITLE_PROPERTIES = [
     ('ZoomX', 0.450),
     ('ZoomY', 0.450),
-    ('AnchorPointX', -1110),
-    ('AnchorPointY', 915),
+    ('AnchorPointX', 0),
+    ('AnchorPointY', 850),
     ('Opacity', 50)
 ]
 
@@ -138,6 +140,7 @@ INFO_MESSAGE_SAVING_PROJECT  = 'Guardando cambios'
 INFO_MESSAGE_REPOSITIONING_PLAYHEAD  = 'Reposicionando PlayHead'
 INFO_MESSAGE_PROCESSING_MANUAL_ACTIONS = 'Procesando Acciones Manuales Simuladas'
 INFO_MESSAGE_WAIT_FOR_USER_INPUT = 'Presione cualquier tecla para continuar...'
+INFO_MESSAGE_BAD_RANGE = 'Rango mal formado:'
 
 # error messages
 ERROR_MESSAGE_JSON_FILE_NOT_FOUND = 'No se pudo encontrar el archivo JSON.'
@@ -147,6 +150,7 @@ ERROR_MESSAGE_MEDIA_DIR_NOT_FOUND = 'No se encontró el directorio en el Media P
 ERROR_MESSAGE_TIMELINE_NOT_FOUND = 'No se encontró el timeline en el proyecto.'
 ERROR_MESSAGE_ASSET_NOT_FOUND = 'No se encontró el asset en la lista dada.'
 ERROR_MESSAGE_INCORREC_TIMESTRIG_FORMAT = 'Formato de timestring hh:mm:ss incorrecto.'
+ERROR_MESSAGE_INVALID_VIDEO_TYPE = 'El tipo de video indicado no es válido.'
 
 # guide messages
 GUIDE_MESSAGE_ADD_OUTRO_KEYFRAMES = 'Agrega los KeyFrames a\nCenter X Y  ◇ → ◆\nSize        ◇ → ◆'
@@ -486,6 +490,8 @@ def generate_camframe_clip_info(camframe_clip, highlights, track, project_handle
         end_timestring = highlight[1] # el segundo elemento siempre es el final
         start_second = timestring_to_second(start_timestring)
         end_second = timestring_to_second(end_timestring)
+        if end_second <= start_second:
+            logger.info(f'{INFO_MESSAGE_BAD_RANGE} ["{start_timestring}", "{end_timestring}"]')
         hook_total_seconds += end_second - start_second
     
     hook_total_frames = hook_total_seconds * FPS
@@ -613,7 +619,7 @@ def add_title_to_hook(project_handler, resolve_handler):
     resolve_handler.OpenPage(PAGE_EDIT_NAME, resolve_handler)
 
 
-def create_hook(highlights_times, video_items, audio_items,
+def create_hook_for_gameplay(highlights_times, video_items, audio_items,
                 project_handler, media_pool_handler, resolve_handler,
                 automate_actions):
     """
@@ -637,11 +643,34 @@ def create_hook(highlights_times, video_items, audio_items,
     add_gameplay_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
     add_camera_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
     add_camframe_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
-    add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool_handler)
+    # activar add_micro_to_hook solo si se ha usado audio externo
+    # add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool_handler)
     if automate_actions:
         process_manual_actions(MANUAL_ACTIONS_FOR_HOOK)
     else:
         wait_for_user_input()
+
+
+def create_hook_for_clip(highlights_times, video_items, project_handler, media_pool_handler, resolve_handler):
+    """
+    Crear el gancho inicial del video a partir de una lista de rangos de tiempo,
+    cada elemento de la lista, a su vez es otra lista que solo pueden tener
+    2 valores cadena en formato hh:mm:ss, el inicio y el fin del rango del tiempo.
+    El inicio es el primer elemento de la lista y el fin es el segungo elemento de
+    la lista.
+    Args:
+        highlights_times (list): Rangos de tiempo de las partes más emocionantes del video.
+        video_items (list): Lista de assets de video del media pool.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+        resolve_handler (obj): Objeto para controlar la instancia de davinci resolve.
+    """
+    switch_to_timeline(TIMELINE_NAME_HOOK, project_handler)
+    logger.info(f'Hook Hightlights Timeranges: {highlights_times}')
+    add_title_to_hook(project_handler, resolve_handler)
+    wait_for_user_input()
+    add_gameplay_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
+    wait_for_user_input()
 
 
 def generate_clip_info(clip, track, project_handler,
@@ -767,7 +796,7 @@ def add_micro_to_subject(highlights_times, audio_items, project_handler, media_p
     media_pool_handler.AppendToTimeline(micro_clips_info)
 
 
-def create_subject(gameplay_times, video_items, audio_items,
+def create_subject_for_gameplay(gameplay_times, video_items, audio_items,
                    project_handler, media_pool_handler, automate_actions):
     """
     Crear el subject del video a partir de una lista de rangos de tiempo, cada elemento
@@ -791,11 +820,35 @@ def create_subject(gameplay_times, video_items, audio_items,
     add_gameplay_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
     add_camera_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
     add_camframe_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
-    add_micro_to_hook(gameplay_times, audio_items, project_handler, media_pool_handler)
+    # activar add_micro_to_hook solo si se ha usado audio externo
+    # add_micro_to_hook(gameplay_times, audio_items, project_handler, media_pool_handler)
     if automate_actions:
         process_manual_actions(MANUAL_ACTIONS_FOR_SUBJECT)
     else:
         wait_for_user_input()
+
+
+def create_subject_for_clip(gameplay_times, video_items, project_handler, media_pool_handler):
+    """
+    Crear el subject del video a partir de una lista de rangos de tiempo, cada elemento
+    de la lista, a su vez es otra lista que solo pueden tener 2 valores cadena en formato
+    hh:mm:ss, el inicio y el fin del rango del tiempo.
+    El inicio es el primer elemento de la lista y el fin es el segundo elemento de
+    la lista.
+    Si se desea incluir el video completo, basta con proporcionar un solo rango equivalente
+    a la duración del mismo. Es poco probable que suceda, ya que primero se suele entrar
+    en escena y al final terminar la grabación (dichas acciones no formarán parte del video
+    final).
+    Args:
+        gameplay_times (list): Rangos específicos del tiempo de gameplay por incluir.
+        video_items (list): Lista de assets de video del media pool.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
+    switch_to_timeline(TIMELINE_NAME_SUBJECT, project_handler)
+    logger.info(f'Gameplay Timeranges: {gameplay_times}')
+    add_gameplay_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
+    wait_for_user_input()
 
 
 def get_H169FHD_media_pool_dir_items(media_pool_handler):
@@ -1021,6 +1074,45 @@ def create_H169FHD(image_items, project_handler, media_pool_handler):
             item.SetProperty(*property)
 
 
+def edit_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
+                  automate_actions, subject_timeranges, image_items):
+    create_hook_for_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve, automate_actions)
+    create_intro(video_items, project, media_pool)
+    create_subject_for_gameplay(subject_timeranges, video_items, audio_items, project, media_pool, automate_actions)
+    create_content(project, media_pool)
+    create_canvas(video_items, project, media_pool)
+    create_main(project, media_pool, resolve)
+    create_H169FHD(image_items, project, media_pool)
+
+
+def edit_clip(hook_timeranges, video_items, project, media_pool, resolve, subject_timeranges, image_items):
+    create_hook_for_clip(hook_timeranges, video_items, project, media_pool, resolve)
+    create_intro(video_items, project, media_pool)
+    create_subject_for_clip(subject_timeranges, video_items, project, media_pool)
+    create_content(project, media_pool)
+    create_canvas(video_items, project, media_pool)
+    create_main(project, media_pool, resolve)
+    create_H169FHD(image_items, project, media_pool)
+
+
+def edit_shorts():
+    pass
+
+
+def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
+               automate_actions, subject_timeranges, image_items, video_type):
+    if video_type == VIDEO_TYPE_GAMEPLAY:
+        edit_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
+                      automate_actions, subject_timeranges, image_items)
+    elif video_type == VIDEO_TYPE_CLIP:
+        edit_clip(hook_timeranges, video_items, project, media_pool, resolve,
+                  subject_timeranges, image_items)
+    elif video_type == VIDEO_TYPE_SHORTS:
+        pass
+    else:
+        raise Exception(ERROR_MESSAGE_INVALID_VIDEO_TYPE + '\n' + video_type)
+
+
 def main():
     # abrir davinci resolve
     open_davinci_resolve()
@@ -1047,6 +1139,7 @@ def main():
     logger.info(f'Project Name: {project_name}')
     media_pool = project.GetMediaPool()
     assets_dirs = params['gameplay_details']['assets']
+    video_type = params['video_type'] # gameplay, clip, shorts
 
     # ##################
     # proceso de edición
@@ -1059,17 +1152,13 @@ def main():
     image_items = import_to_media_pool_dir(assets_dirs['image'], IMAGE_MEDIA_DIR, media_pool)
     video_items = import_to_media_pool_dir(assets_dirs['video'], VIDEO_MEDIA_DIR, media_pool)
     logger.info(f'Media Pool Items Loaded: {audio_items}, {image_items}, {video_items}')
-    # crear hook del video
+    # parámetros iniciales
     hook_timeranges = params['gameplay_details']['hook']
     subject_timeranges = params['gameplay_details']['subject']
     automate_actions = params['gameplay_details']['enable_automated_manual_actions']
-    create_hook(hook_timeranges, video_items, audio_items, project, media_pool, resolve, automate_actions)
-    create_intro(video_items, project, media_pool)
-    create_subject(subject_timeranges, video_items, audio_items, project, media_pool, automate_actions)
-    create_content(project, media_pool)
-    create_canvas(video_items, project, media_pool)
-    create_main(project, media_pool, resolve)
-    create_H169FHD(image_items, project, media_pool)
+    # editar video
+    edit_video(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
+               automate_actions, subject_timeranges, image_items, video_type)
 
     # guardar cambios
     project_manager.SaveProject()
