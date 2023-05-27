@@ -51,6 +51,7 @@ TIMELINE_NAME_HOOK = 'H16.9FHD - Hook'
 TIMELINE_NAME_INTRO = 'H16.9FHD - Intro'
 TIMELINE_NAME_MAIN = 'H16.9FHD - Main'
 TIMELINE_NAME_SUBJECT = 'H16.9FHD - Subject'
+TIMELINE_NAME_VERTICAL = 'V16.9FHD'
 ASSET_AUDIO_NAME_MICRO = 'micro.mp3'
 ASSET_IMAGE_NAME_WATERMARK = 'watermark.png'
 ASSET_VIDEO_NAME_CAMERA = 'camera.mov'
@@ -58,11 +59,15 @@ ASSET_VIDEO_NAME_CAMFRAME = 'camframe.mov'
 ASSET_VIDEO_NAME_GAMEPLAY = 'gameplay.mov'
 ASSET_VIDEO_NAME_INTRO = 'intro.mov'
 ASSET_VIDEO_NAME_OUTRO = 'outro.mov'
+ASSET_SHORT_OVERLAY = 'short_overlay.png'
+ASSET_SHORT_BACKGROUND = 'short_background.mov'
 HOOK_TRACK_GAMEPLAY = 'gameplay'
 HOOK_TRACK_CAMERA = 'camera'
 HOOK_TRACK_CAMFRAME = 'camframe'
 HOOK_TRACK_MIC = 'mic'
 HOOK_TRACK_TITLE = 'title'
+SHORT_TRACK_BACKGROUND = 'background'
+SHORT_TRACK_OVERLAY = 'overlay'
 HOOK_TITLE = 'Más adelante en este video...'
 INTRO_TRACK = 'intro'
 SUBJECT_TRACK_GAMEPLAY = 'gameplay'
@@ -106,12 +111,12 @@ SHORT_GAMEPLAY_PROPERTIES = [
 SHORT_CAMERA_PROPERTIES = [
     ('ZoomX', 2.080),
     ('ZoomY', 2.080),
-    ('AnchorPointX', -291),
-    ('AnchorPointY', -596),
-    ('CropLeft', 885),
-    ('CropRight', 15),
-    ('CropTop', 214),
-    ('CropBottom', 200)]
+    ('AnchorPointX', 547.00),
+    ('AnchorPointY', -609.00),
+    ('CropLeft', 885.00),
+    ('CropRight', 14.00),
+    ('CropTop', 214.00),
+    ('CropBottom', 200.00)]
 
 # mouse manual actions
 MANUAL_ACTIONS_SECONDS_OF_DELAY = 4 # es alto para evitar conflictos con el autosaving
@@ -1088,18 +1093,42 @@ def create_H169FHD(image_items, project_handler, media_pool_handler):
             item.SetProperty(*property)
 
 
+def calculate_short_duration(short_timeranges):
+    short_duration = 0
+    for timeranges in short_timeranges:
+        start_time = list(map(int, timeranges[0].split(':')))
+        end_time = list(map(int, timeranges[1].split(':')))
+        short_duration += (end_time[0] - start_time[0]) * 3600\
+            + (end_time[1] - start_time[1]) * 60 + (end_time[2] - start_time[2])
+    return short_duration
+
+
 def validate_shorts_duration(shorts_timeranges):
     for index, short_timeranges in enumerate(shorts_timeranges):
         short_number = str(index + 1).zfill(2)
-        short_duration = 0
-        for timeranges in short_timeranges:
-            start_time = list(map(int, timeranges[0].split(':')))
-            end_time = list(map(int, timeranges[1].split(':')))
-            short_duration += (end_time[0] - start_time[0]) * 3600\
-                + (end_time[1] - start_time[1]) * 60 + (end_time[2] - start_time[2])
+        short_duration = calculate_short_duration(short_timeranges)
         logger.info(f'short-{short_number}_duration: {short_duration}s')
         if short_duration > SHORT_MAX_DURATION_IN_SECONDS:
             raise Exception(f'{ERROR_MESSAGE_INVALID_SHORT_DURATION}\n{short_duration}s > {SHORT_MAX_DURATION_IN_SECONDS}s')
+
+
+def generate_clip_info_list_for_short_background(clip, duration, track, project_handler,
+                                                 media_type=None, track_type=TRACK_TYPE_VIDEO):
+    clips_info = []
+    start_frame = 0
+    end_frame = duration*FPS - NOT_OVERLAPPING_FRAME
+    track_index = get_track_index(track, project_handler, track_type)
+    clip_info = {
+        'mediaPoolItem': clip,
+        'trackIndex': track_index,
+        'startFrame' : start_frame,
+        'endFrame' : end_frame }
+    if media_type:
+        clip_info['mediaType'] = media_type
+    clips_info.append(clip_info)
+    logger.info(f'preparing {(end_frame - start_frame + NOT_OVERLAPPING_FRAME) / 30}' + \
+                f'sec of {clip.GetName()} clip to add to {track} track')
+    return clips_info
 
 
 def edit_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
@@ -1123,14 +1152,38 @@ def edit_clip(hook_timeranges, video_items, project, media_pool, resolve, subjec
     create_H169FHD(image_items, project, media_pool)
 
 
-def edit_shorts(shorts_timeranges, video_items, project_handler):
+def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_handler):
     validate_shorts_duration(shorts_timeranges)
     for index, timeranges in enumerate(shorts_timeranges):
         short_number = str(index + 1).zfill(2)
+        switch_to_timeline(TIMELINE_NAME_VERTICAL, project_handler)
+        short_timeline = project_handler.GetCurrentTimeline()
+        short_timeline = short_timeline.DuplicateTimeline(f'{TIMELINE_NAME_VERTICAL}_{short_number}')
+
+        background_asset = get_asset_by_name(ASSET_SHORT_BACKGROUND, video_items)
+        short_duration = calculate_short_duration(timeranges)
+        gameplay_clips_info = generate_clip_info_list_for_short_background(
+            background_asset, short_duration, SHORT_TRACK_BACKGROUND, project_handler)
+        logger.info(f'short-{short_number}_clips_info {gameplay_clips_info}')
+        gameplay_items = media_pool_handler.AppendToTimeline(gameplay_clips_info)
+
         gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
         gameplay_clips_info = generate_clip_info_list_from_highlights(
             gameplay_asset, timeranges, HOOK_TRACK_GAMEPLAY, project_handler)
         logger.info(f'short-{short_number}_clips_info {gameplay_clips_info}')
+        gameplay_items = media_pool_handler.AppendToTimeline(gameplay_clips_info)
+        for timeline_item in gameplay_items:
+            for property in SHORT_GAMEPLAY_PROPERTIES:
+                timeline_item.SetProperty(*property)
+        
+        camera_clips_info = generate_clip_info_list_from_highlights(
+            gameplay_asset, timeranges, HOOK_TRACK_CAMERA, project_handler)
+        logger.info(f'short-{short_number}_clips_info {camera_clips_info}')
+        camera_items = media_pool_handler.AppendToTimeline(camera_clips_info)
+        for timeline_item in camera_items:
+            for property in SHORT_CAMERA_PROPERTIES:
+                timeline_item.SetProperty(*property)
+        wait_for_user_input()
 
 
 def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
@@ -1143,7 +1196,7 @@ def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, r
         edit_clip(hook_timeranges, video_items, project, media_pool, resolve,
                   subject_timeranges, image_items)
     elif video_type == VIDEO_TYPE_SHORTS:
-        edit_shorts(shorts_timeranges, video_items, project)
+        edit_shorts(shorts_timeranges, video_items, project, media_pool)
     else:
         raise Exception(ERROR_MESSAGE_INVALID_VIDEO_TYPE + '\n' + video_type)
 
