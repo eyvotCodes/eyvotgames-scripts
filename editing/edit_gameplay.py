@@ -79,6 +79,7 @@ VIDEO_TYPE_GAMEPLAY = 'gameplay'
 VIDEO_TYPE_CLIP = 'clip'
 VIDEO_TYPE_SHORTS = 'shorts'
 START_TIMECODE = '01:00:00:00'
+SHORT_MAX_DURATION_IN_SECONDS = 59
 START_FRAME = 0
 SECONDS_OF_OUTRO_TRANSITION = 1
 OUTRO_TRANSFORM_SIZE = 0.325
@@ -97,8 +98,20 @@ HOOK_TITLE_PROPERTIES = [
     ('ZoomY', 0.450),
     ('AnchorPointX', 0),
     ('AnchorPointY', 850),
-    ('Opacity', 50)
-]
+    ('Opacity', 50)]
+SHORT_GAMEPLAY_PROPERTIES = [
+    ('ZoomX', 2.080),
+    ('ZoomY', 2.080),
+    ('AnchorPointY', 95)]
+SHORT_CAMERA_PROPERTIES = [
+    ('ZoomX', 2.080),
+    ('ZoomY', 2.080),
+    ('AnchorPointX', -291),
+    ('AnchorPointY', -596),
+    ('CropLeft', 885),
+    ('CropRight', 15),
+    ('CropTop', 214),
+    ('CropBottom', 200)]
 
 # mouse manual actions
 MANUAL_ACTIONS_SECONDS_OF_DELAY = 4 # es alto para evitar conflictos con el autosaving
@@ -151,6 +164,7 @@ ERROR_MESSAGE_TIMELINE_NOT_FOUND = 'No se encontró el timeline en el proyecto.'
 ERROR_MESSAGE_ASSET_NOT_FOUND = 'No se encontró el asset en la lista dada.'
 ERROR_MESSAGE_INCORREC_TIMESTRIG_FORMAT = 'Formato de timestring hh:mm:ss incorrecto.'
 ERROR_MESSAGE_INVALID_VIDEO_TYPE = 'El tipo de video indicado no es válido.'
+ERROR_MESSAGE_INVALID_SHORT_DURATION = 'La duración del short no es válida.'
 
 # guide messages
 GUIDE_MESSAGE_ADD_OUTRO_KEYFRAMES = 'Agrega los KeyFrames a\nCenter X Y  ◇ → ◆\nSize        ◇ → ◆'
@@ -1074,6 +1088,20 @@ def create_H169FHD(image_items, project_handler, media_pool_handler):
             item.SetProperty(*property)
 
 
+def validate_shorts_duration(shorts_timeranges):
+    for index, short_timeranges in enumerate(shorts_timeranges):
+        short_number = str(index + 1).zfill(2)
+        short_duration = 0
+        for timeranges in short_timeranges:
+            start_time = list(map(int, timeranges[0].split(':')))
+            end_time = list(map(int, timeranges[1].split(':')))
+            short_duration += (end_time[0] - start_time[0]) * 3600\
+                + (end_time[1] - start_time[1]) * 60 + (end_time[2] - start_time[2])
+        logger.info(f'short-{short_number}_duration: {short_duration}s')
+        if short_duration > SHORT_MAX_DURATION_IN_SECONDS:
+            raise Exception(f'{ERROR_MESSAGE_INVALID_SHORT_DURATION}\n{short_duration}s > {SHORT_MAX_DURATION_IN_SECONDS}s')
+
+
 def edit_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
                   automate_actions, subject_timeranges, image_items):
     create_hook_for_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve, automate_actions)
@@ -1095,12 +1123,19 @@ def edit_clip(hook_timeranges, video_items, project, media_pool, resolve, subjec
     create_H169FHD(image_items, project, media_pool)
 
 
-def edit_shorts():
-    pass
+def edit_shorts(shorts_timeranges, video_items, project_handler):
+    validate_shorts_duration(shorts_timeranges)
+    for index, timeranges in enumerate(shorts_timeranges):
+        short_number = str(index + 1).zfill(2)
+        gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
+        gameplay_clips_info = generate_clip_info_list_from_highlights(
+            gameplay_asset, timeranges, HOOK_TRACK_GAMEPLAY, project_handler)
+        logger.info(f'short-{short_number}_clips_info {gameplay_clips_info}')
 
 
 def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
-               automate_actions, subject_timeranges, image_items, video_type):
+               automate_actions, subject_timeranges, image_items, video_type,
+               shorts_timeranges):
     if video_type == VIDEO_TYPE_GAMEPLAY:
         edit_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
                       automate_actions, subject_timeranges, image_items)
@@ -1108,7 +1143,7 @@ def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, r
         edit_clip(hook_timeranges, video_items, project, media_pool, resolve,
                   subject_timeranges, image_items)
     elif video_type == VIDEO_TYPE_SHORTS:
-        pass
+        edit_shorts(shorts_timeranges, video_items, project)
     else:
         raise Exception(ERROR_MESSAGE_INVALID_VIDEO_TYPE + '\n' + video_type)
 
@@ -1155,10 +1190,12 @@ def main():
     # parámetros iniciales
     hook_timeranges = params['gameplay_details']['hook']
     subject_timeranges = params['gameplay_details']['subject']
+    shorts_timeranges = params['gameplay_details']['shorts']
     automate_actions = params['gameplay_details']['enable_automated_manual_actions']
     # editar video
     edit_video(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
-               automate_actions, subject_timeranges, image_items, video_type)
+               automate_actions, subject_timeranges, image_items, video_type,
+               shorts_timeranges)
 
     # guardar cambios
     project_manager.SaveProject()
