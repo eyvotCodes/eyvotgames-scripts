@@ -33,6 +33,7 @@ TRACK_TYPE_VIDEO = 'video'
 ONLY_VIDEO_MEDIA_TYPE = 1
 ONLY_AUDIO_MEDIA_TYPE = 2
 COMPOSITE_MODE_DIFF = 3
+DEFAULT_IMAGE_CLIP_DURATION_IN_SECONDS = 5
 
 # media dirs
 HORIZONTAL_VIDEO_MEDIA_DIR = 'H16.9FHD'
@@ -59,7 +60,7 @@ ASSET_VIDEO_NAME_CAMFRAME = 'camframe.mov'
 ASSET_VIDEO_NAME_GAMEPLAY = 'gameplay.mov'
 ASSET_VIDEO_NAME_INTRO = 'intro.mov'
 ASSET_VIDEO_NAME_OUTRO = 'outro.mov'
-ASSET_SHORT_OVERLAY = 'short_overlay.png'
+ASSET_SHORT_OVERLAY = 'short_overlay.mov'
 ASSET_SHORT_BACKGROUND = 'short_background.mov'
 HOOK_TRACK_GAMEPLAY = 'gameplay'
 HOOK_TRACK_CAMERA = 'camera'
@@ -114,7 +115,7 @@ SHORT_CAMERA_PROPERTIES = [
     ('AnchorPointX', 547.00),
     ('AnchorPointY', -609.00),
     ('CropLeft', 885.00),
-    ('CropRight', 14.00),
+    ('CropRight', 15.00),
     ('CropTop', 214.00),
     ('CropBottom', 200.00)]
 
@@ -489,6 +490,18 @@ def generate_clip_info_list_from_highlights(clip, highlights, track, project_han
     return clips_info
 
 
+def get_clip_duration_in_frames(clip):
+    long_timestring = clip.GetClipProperty("duration")
+    timestring = ':'.join(long_timestring.split(':')[:-1])
+    total_seconds = timestring_to_second(timestring)
+    total_frames = total_seconds * FPS
+    return total_frames
+
+
+def get_default_image_clip_duration_in_frames():
+    return DEFAULT_IMAGE_CLIP_DURATION_IN_SECONDS * FPS
+
+
 def generate_camframe_clip_info(camframe_clip, highlights, track, project_handler):
     """
     Obtiene una lista de directorios con información del media clip entendible por
@@ -515,10 +528,7 @@ def generate_camframe_clip_info(camframe_clip, highlights, track, project_handle
     
     hook_total_frames = hook_total_seconds * FPS
     logger.info(f'hook_total_frames {hook_total_frames}')
-    camframe_long_timestring = camframe_clip.GetClipProperty("duration")
-    camframe_timestring = ':'.join(camframe_long_timestring.split(':')[:-1])
-    camframe_total_seconds = timestring_to_second(camframe_timestring)
-    camframe_total_frames = camframe_total_seconds * FPS
+    camframe_total_frames = get_clip_duration_in_frames(camframe_clip)
     logger.info(f'camframe_total_frames {camframe_total_frames}')
     number_of_full_camframes_needed = hook_total_frames // camframe_total_frames
     logger.info(f'number_of_full_camframes_needed {number_of_full_camframes_needed}')
@@ -1131,6 +1141,38 @@ def generate_clip_info_list_for_short_background(clip, duration, track, project_
     return clips_info
 
 
+def generate_clip_info_list_for_short_camframe(clip, duration, track, project_handler,
+                                               media_type=None, track_type=TRACK_TYPE_VIDEO):
+    short_total_frames = duration*FPS
+    overlay_total_frames = get_clip_duration_in_frames(clip)
+    number_of_full_overlays_needed = short_total_frames // overlay_total_frames
+    is_partial_overlay_needed = (short_total_frames % overlay_total_frames) != 0
+    track_index = get_track_index(track, project_handler, track_type)
+    clips_info = []
+
+    for _ in range(number_of_full_overlays_needed):
+        clip_info = {
+            'mediaPoolItem': clip,
+            'trackIndex': track_index,
+            'mediaType': track_type,
+            'startFrame' : 0,
+            'endFrame' : overlay_total_frames - NOT_OVERLAPPING_FRAME }
+        clips_info.append(clip_info)
+
+    if is_partial_overlay_needed:
+        partial_frames_needed = short_total_frames \
+            - overlay_total_frames*number_of_full_overlays_needed
+        clip_info = {
+            'mediaPoolItem': clip,
+            'trackIndex': track_index,
+            'mediaType': media_type,
+            'startFrame' : 0,
+            'endFrame' : partial_frames_needed - NOT_OVERLAPPING_FRAME }
+        clips_info.append(clip_info)
+
+    return clips_info
+
+
 def edit_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
                   automate_actions, subject_timeranges, image_items):
     create_hook_for_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve, automate_actions)
@@ -1162,10 +1204,10 @@ def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_hand
 
         background_asset = get_asset_by_name(ASSET_SHORT_BACKGROUND, video_items)
         short_duration = calculate_short_duration(timeranges)
-        gameplay_clips_info = generate_clip_info_list_for_short_background(
+        background_clips_info = generate_clip_info_list_for_short_background(
             background_asset, short_duration, SHORT_TRACK_BACKGROUND, project_handler)
-        logger.info(f'short-{short_number}_clips_info {gameplay_clips_info}')
-        gameplay_items = media_pool_handler.AppendToTimeline(gameplay_clips_info)
+        logger.info(f'short-{short_number}_clips_info {background_clips_info}')
+        gameplay_items = media_pool_handler.AppendToTimeline(background_clips_info)
 
         gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
         gameplay_clips_info = generate_clip_info_list_from_highlights(
@@ -1183,6 +1225,14 @@ def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_hand
         for timeline_item in camera_items:
             for property in SHORT_CAMERA_PROPERTIES:
                 timeline_item.SetProperty(*property)
+
+        overlay_asset = get_asset_by_name(ASSET_SHORT_OVERLAY, video_items)
+        short_duration = calculate_short_duration(timeranges)
+        gameplay_clips_info = generate_clip_info_list_for_short_camframe(
+            overlay_asset, short_duration, SHORT_TRACK_OVERLAY, project_handler)
+        logger.info(f'short-{short_number}_clips_info {gameplay_clips_info}')
+        gameplay_items = media_pool_handler.AppendToTimeline(gameplay_clips_info)
+
         wait_for_user_input()
 
 
