@@ -83,6 +83,7 @@ H169HD_MAIN_TRACK = 'main'
 H169HD_WATERMARK_TRACK = 'watermark'
 VIDEO_TYPE_GAMEPLAY = 'gameplay'
 VIDEO_TYPE_CLIP = 'clip'
+VIDEO_TYPE_CLIPS = 'clips'
 VIDEO_TYPE_SHORTS = 'shorts'
 START_TIMECODE = '01:00:00:00'
 SHORT_MAX_DURATION_IN_SECONDS = 59
@@ -108,12 +109,12 @@ HOOK_TITLE_PROPERTIES = [
 SHORT_GAMEPLAY_PROPERTIES = [
     ('ZoomX', 2.080),
     ('ZoomY', 2.080),
-    ('AnchorPointY', 95)]
+    ('AnchorPointY', 90)]
 SHORT_CAMERA_PROPERTIES = [
     ('ZoomX', 2.080),
     ('ZoomY', 2.080),
-    ('AnchorPointX', 547.00),
-    ('AnchorPointY', -609.00),
+    ('AnchorPointX', 650.00),
+    ('AnchorPointY', -591.00),
     ('CropLeft', 885.00),
     ('CropRight', 15.00),
     ('CropTop', 214.00),
@@ -1113,13 +1114,26 @@ def calculate_short_duration(short_timeranges):
     return short_duration
 
 
-def validate_shorts_duration(shorts_timeranges):
+def valid_shorts_duration_or_stop(shorts_timeranges):
     for index, short_timeranges in enumerate(shorts_timeranges):
         short_number = str(index + 1).zfill(2)
         short_duration = calculate_short_duration(short_timeranges)
         logger.info(f'short-{short_number}_duration: {short_duration}s')
         if short_duration > SHORT_MAX_DURATION_IN_SECONDS:
-            raise Exception(f'{ERROR_MESSAGE_INVALID_SHORT_DURATION}\n{short_duration}s > {SHORT_MAX_DURATION_IN_SECONDS}s')
+            raise Exception(f'{ERROR_MESSAGE_INVALID_SHORT_DURATION}'\
+                            + f'\nshort-{short_number}:{short_duration}s > {SHORT_MAX_DURATION_IN_SECONDS}s')
+
+
+def validate_timeranges(timeranges):
+    # TODO: test and refactor
+    for index, timerange in enumerate(timeranges):
+        start_time = timerange[0]
+        end_time = timerange[1]
+        
+        if start_time >= end_time:
+            raise Exception(f"Error: El rango {index+1} no es válido.")    
+    print("Todos los rangos son válidos.")
+
 
 
 def generate_clip_info_list_for_short_background(clip, duration, track, project_handler,
@@ -1195,7 +1209,7 @@ def edit_clip(hook_timeranges, video_items, project, media_pool, resolve, subjec
 
 
 def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_handler):
-    validate_shorts_duration(shorts_timeranges)
+    valid_shorts_duration_or_stop(shorts_timeranges)
     for index, timeranges in enumerate(shorts_timeranges):
         short_number = str(index + 1).zfill(2)
         switch_to_timeline(TIMELINE_NAME_VERTICAL, project_handler)
@@ -1247,6 +1261,8 @@ def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, r
                   subject_timeranges, image_items)
     elif video_type == VIDEO_TYPE_SHORTS:
         edit_shorts(shorts_timeranges, video_items, project, media_pool)
+    elif video_type == VIDEO_TYPE_CLIPS:
+        pass
     else:
         raise Exception(ERROR_MESSAGE_INVALID_VIDEO_TYPE + '\n' + video_type)
 
