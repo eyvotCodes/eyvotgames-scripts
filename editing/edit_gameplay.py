@@ -172,6 +172,7 @@ ERROR_MESSAGE_ASSET_NOT_FOUND = 'No se encontró el asset en la lista dada.'
 ERROR_MESSAGE_INCORREC_TIMESTRIG_FORMAT = 'Formato de timestring hh:mm:ss incorrecto.'
 ERROR_MESSAGE_INVALID_VIDEO_TYPE = 'El tipo de video indicado no es válido.'
 ERROR_MESSAGE_INVALID_SHORT_DURATION = 'La duración del short no es válida.'
+ERROR_MESSAGE_INVALID_TIMERANGE = 'El rango de tiempo no es válido.'
 
 # guide messages
 GUIDE_MESSAGE_ADD_OUTRO_KEYFRAMES = 'Agrega los KeyFrames a\nCenter X Y  ◇ → ◆\nSize        ◇ → ◆'
@@ -1125,15 +1126,12 @@ def valid_shorts_duration_or_stop(shorts_timeranges):
 
 
 def validate_timeranges(timeranges):
-    # TODO: test and refactor
     for index, timerange in enumerate(timeranges):
         start_time = timerange[0]
         end_time = timerange[1]
-        
         if start_time >= end_time:
-            raise Exception(f"Error: El rango {index+1} no es válido.")    
-    print("Todos los rangos son válidos.")
-
+            raise Exception(f'{ERROR_MESSAGE_INVALID_TIMERANGE}'\
+                            + f'\nrango: {index + 1}')
 
 
 def generate_clip_info_list_for_short_background(clip, duration, track, project_handler,
@@ -1253,6 +1251,9 @@ def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_hand
 def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
                automate_actions, subject_timeranges, image_items, video_type,
                shorts_timeranges):
+    validate_timeranges(hook_timeranges)
+    validate_timeranges(subject_timeranges)
+
     if video_type == VIDEO_TYPE_GAMEPLAY:
         edit_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
                       automate_actions, subject_timeranges, image_items)
