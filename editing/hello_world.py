@@ -1,11 +1,10 @@
 #!/usr/bin/python3
-import json
 import DaVinciResolveScript as davinci_resolve_script
 
 # project setup
 PROJECT_NAME = "00-test"
 TIMELINE_NAME = "My Automated Timeline"
-TEXT_TITLE = "Hola Mundo :D"
+TEXT_TITLE = "Hola Mundo! DaVinci Resolve"
 
 # davinci resolve api values
 DVR_SCRIPT_APP = "Resolve"

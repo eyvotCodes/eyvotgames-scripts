@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-import json
 import DaVinciResolveScript as davinci_resolve_script
 
 """
@@ -10,13 +9,13 @@ INSTRUCCIONES:
 Nota: No existe forma de duplicar un proyecto a través de DRScript, podría
 intentarse de forma manual con un script de bash, pero se podría corromper
 la consistencia de los datos (DR guarda los proyectos en una base de datos
-de PostgreSQL), así que es más seguro utilizar la propia GUI del programa
-paraa realizar dicha acción.
+de PostgreSQL), así que es más seguro utilizar la propia API del programa
+para realizar dicha acción.
 A futuro podría considerarse investigar cómo se estructuran de forma interna
 los proyectos en PostgreSQL haciendo Reverse Engineering o simplemente
-esperar si en próximas versiones se introduce esa capacidad. De momento es
-mejor opción hacerlo de forma manual, ya que no consume mucho tiempo dicha
-tarea, y es una solución viable.
+esperar si en próximas versiones del API se introduce esa capacidad.
+De momento es mejor opción hacerlo de forma manual, ya que no consume mucho
+tiempo dicha tarea, y es una solución viable.
 """
 
 # project setup

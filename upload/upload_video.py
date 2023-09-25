@@ -3,15 +3,13 @@ import google.oauth2.credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-# Credenciales y token de acceso
+# credenciales y token de acceso
 access_token = "[access_token]"
 credentials = google.oauth2.credentials.Credentials(access_token)
-
-# Crea un servicio de YouTube
 youtube = build("youtube", "v3", credentials=credentials)
 
-# Parámetros del video
-video_path = "/Users/fleyva/projects/@eyvotTest/content/youtube/short-067.mov"
+# parámetros del video
+video_path = ""
 video_title = "Video de prueba"
 video_description = "Prueba de descripción"
 video_tags = ["TAG1", "TAG2", "TAG3"]

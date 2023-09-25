@@ -121,7 +121,9 @@ SHORT_CAMERA_PROPERTIES = [
     ('CropBottom', 200.00)]
 
 # mouse manual actions
-MANUAL_ACTIONS_SECONDS_OF_DELAY = 4 # es alto para evitar conflictos con el autosaving
+# el delay se usa para evitar conflictos con el
+# autosaving de DaVinci Resolve
+MANUAL_ACTIONS_SECONDS_OF_DELAY = 4
 MANUAL_ACTIONS_FOR_HOOK = """
 L Click {"x":1250, "y":43}
 L Click {"x":1261, "y":45}
@@ -704,15 +706,13 @@ def create_hook_for_clip(highlights_times, video_items, project_handler, media_p
     wait_for_user_input()
 
 
-def generate_clip_info(clip, track, project_handler,
-                       media_type=None, track_type=TRACK_TYPE_VIDEO):
+def generate_clip_info(clip, track, project_handler, track_type=TRACK_TYPE_VIDEO):
     """
     Obtiene información del media clip en cuestión de forma entendible por DaVinci Resolve.
     Args:
         clip (obj): Media pool item del api de davinci resolve.
         track (str): Nombre del track del timeline donde se desea agregar el clip.
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
-        media_type (int): Valor opcional entero para usar constantes media type del api de davinci resolve.
         track_type (str): Valor opcional cadena para usar constantes track type del api de davinci resolve.
     Returns:
         dict: Lista de directorios con información del clip a importar.
@@ -970,15 +970,13 @@ def create_canvas(video_items, project_handler, media_pool_handler):
     reset_playhead_position(project_handler)
 
 
-def generate_clip_info_for_timecode(clip, track, start_timecode,
-                                    project_handler, media_type=None, track_type=TRACK_TYPE_VIDEO):
+def generate_clip_info_for_timecode(clip, track, project_handler, track_type=TRACK_TYPE_VIDEO):
     """
     Obtiene información del media clip en cuestión de forma entendible por DaVinci Resolve.
     Args:
         clip (obj): Media pool item del api de davinci resolve.
         track (str): Nombre del track del timeline donde se desea agregar el clip.
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
-        media_type (int): Valor opcional entero para usar constantes media type del api de davinci resolve.
         track_type (str): Valor opcional cadena para usar constantes track type del api de davinci resolve.
     Returns:
         dict: Lista de directorios con información del clip a importar.

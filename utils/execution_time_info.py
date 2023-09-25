@@ -19,7 +19,7 @@ def on_key_release(key):
             print(f"execution time - {get_formatted_time(elapsed_time)}")
         elif key == keyboard.Key.backspace:
             print("exiting...\n")
-            return False  # Detiene el listener de teclado
+            return False  # detiene el listener de teclado
     except AttributeError:
         pass
 

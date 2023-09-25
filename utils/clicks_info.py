@@ -10,11 +10,11 @@ def on_click(x, y, button, pressed):
 
 def on_press(key):
     if key == keyboard.Key.enter:
-        return False  # Sale del programa
+        return False  # sale del programa
 
-# Inicia los listeners del mouse y del teclado
+# inicia los listeners del mouse y del teclado
 with mouse.Listener(on_click=on_click) as click_listener, \
     keyboard.Listener(on_press=on_press) as keys_listener:
-    keys_listener.join()  # Espera a que se presione enter
+    keys_listener.join()  # espera a que se presione enter
 
 print('\nExecution finished!')
