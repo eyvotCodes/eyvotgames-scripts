@@ -265,7 +265,8 @@ def process_manual_actions(actions):
             button = Button.right
         else:
             continue
-        coords = eval(click[7:])
+        json_start_index = 7
+        coords = eval(click[json_start_index:])
         mouse.position = (coords['x'], coords['y'])
         mouse.click(button, 1)
 
@@ -331,6 +332,7 @@ def import_to_media_pool_dir(media_paths, media_pool_dir, media_pool_handler):
     items = media_pool_handler.ImportMedia(media_paths)
     return items
 
+
 def switch_to_page(page_name, resolve_handler):
     """
     Cambia a una determinada página del flujo de edición de davinci resolve.
@@ -341,6 +343,7 @@ def switch_to_page(page_name, resolve_handler):
     message = 'Abriendo Página ' + page_name.capitalize()
     resolve_handler.OpenPage(page_name)
     wait_for(SECONDS_TO_WAIT_FOR_PAGE_CHANGE, message)
+
 
 def choose_suffix_to_project_name(name, project_handler):
     """
@@ -446,6 +449,10 @@ def reset_playhead_position(project_handler):
 def get_track_index(track_name, project_handler, track_type):
     """
     Si no se encuentra, por defecto retorna la primera.
+    Args:
+        track_name (str): Nombre del track del cual se obtendrá su índice.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        track_type (str): Valor opcional cadena para usar constantes track type del api de davinci resolve.
     """
     current_timeline = project_handler.GetCurrentTimeline()
     track_index = 1
@@ -495,6 +502,11 @@ def generate_clip_info_list_from_highlights(clip, highlights, track, project_han
 
 
 def get_clip_duration_in_frames(clip):
+    """
+    Obtiene la cantidad de frames de un clip.
+    Args:
+        clip (obj): Objeto clip del api de dacinci resolve.
+    """
     long_timestring = clip.GetClipProperty("duration")
     timestring = ':'.join(long_timestring.split(':')[:-1])
     total_seconds = timestring_to_second(timestring)
@@ -503,6 +515,10 @@ def get_clip_duration_in_frames(clip):
 
 
 def get_default_image_clip_duration_in_frames():
+    """
+    Obtiene la cantidad de frames que DaVinci Resolve asigna por defecto
+    a los clips de imagen.
+    """
     return DEFAULT_IMAGE_CLIP_DURATION_IN_SECONDS * FPS
 
 
@@ -545,7 +561,6 @@ def generate_camframe_clip_info(camframe_clip, highlights, track, project_handle
         clip_info = {
             'mediaPoolItem': camframe_clip,
             'trackIndex': track_index,
-            # 'mediaType': ONLY_VIDEO_MEDIA_TYPE,
             'startFrame' : 0,
             'endFrame' : camframe_total_frames - NOT_OVERLAPPING_FRAME }
         clips_info.append(clip_info)
@@ -556,7 +571,6 @@ def generate_camframe_clip_info(camframe_clip, highlights, track, project_handle
         clip_info = {
             'mediaPoolItem': camframe_clip,
             'trackIndex': track_index,
-            # 'mediaType': ONLY_VIDEO_MEDIA_TYPE,
             'startFrame' : 0,
             'endFrame' : partial_frames_needed - NOT_OVERLAPPING_FRAME }
         clips_info.append(clip_info)
@@ -1104,6 +1118,11 @@ def create_H169FHD(image_items, project_handler, media_pool_handler):
 
 
 def calculate_short_duration(short_timeranges):
+    """
+    Cacula la duración en segundos de un short.
+    Args:
+        short_timeranges (list): Lista de rangos de tiempo del short.
+    """
     short_duration = 0
     for timeranges in short_timeranges:
         start_time = list(map(int, timeranges[0].split(':')))
@@ -1114,6 +1133,11 @@ def calculate_short_duration(short_timeranges):
 
 
 def valid_shorts_duration_or_stop(shorts_timeranges):
+    """
+    Verifica que ningún short exceda la duración máxima que pueden tener.
+    Args:
+        shorts_timeranges (list): Listas de rangos de tiempo de todos los shorts.
+    """
     for index, short_timeranges in enumerate(shorts_timeranges):
         short_number = str(index + 1).zfill(2)
         short_duration = calculate_short_duration(short_timeranges)
@@ -1124,6 +1148,11 @@ def valid_shorts_duration_or_stop(shorts_timeranges):
 
 
 def validate_timeranges(timeranges):
+    """
+    Verifica que no haya incoherencias o malformaciones en una serie de rangos de tiempo.
+    Args:
+        timeranges (list): Lista de rangos de tiempo por evaluar.
+    """
     for index, timerange in enumerate(timeranges):
         start_time = timerange[0]
         end_time = timerange[1]
@@ -1134,6 +1163,21 @@ def validate_timeranges(timeranges):
 
 def generate_clip_info_list_for_short_background(clip, duration, track, project_handler,
                                                  media_type=None, track_type=TRACK_TYPE_VIDEO):
+    """
+    Obtiene una lista de directorios con información del media clip entendible por
+    DaVinci Resolve. Esta información detalla cuántos clips de background de short se
+    necesitarán para cubrir la duración del short, incluso si solo se necesita un
+    segmento del mismo.
+    Args:
+        clip (obj): Media pool item del api de davinci resolve.
+        duration (int): Duración del short en segundos.
+        track (str): Nombre del track del timeline donde se desea agregar el clip.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_type (int): Valor opcional entero para usar constantes media type del api de davinci resolve.
+        track_type (str): Valor opcional cadena para usar constantes track type del api de davinci resolve.
+    Returns:
+        dict: Lista de directorios con información del clip a importar.
+    """
     clips_info = []
     start_frame = 0
     end_frame = duration*FPS - NOT_OVERLAPPING_FRAME
@@ -1153,6 +1197,20 @@ def generate_clip_info_list_for_short_background(clip, duration, track, project_
 
 def generate_clip_info_list_for_short_camframe(clip, duration, track, project_handler,
                                                media_type=None, track_type=TRACK_TYPE_VIDEO):
+    """
+    Obtiene una lista de directorios con información del media clip entendible por
+    DaVinci Resolve. Esta información detalla cuántos clips de camframe se necesitarán
+    para cubrir la duración del short, incluso si solo se necesita un segmento del mismo.
+    Args:
+        clip (obj): Media pool item del api de davinci resolve.
+        duration (int): Duración del short en segundos.
+        track (str): Nombre del track del timeline donde se desea agregar el clip.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_type (int): Valor opcional entero para usar constantes media type del api de davinci resolve.
+        track_type (str): Valor opcional cadena para usar constantes track type del api de davinci resolve.
+    Returns:
+        dict: Lista de directorios con información del clip a importar.
+    """
     short_total_frames = duration*FPS
     overlay_total_frames = get_clip_duration_in_frames(clip)
     number_of_full_overlays_needed = short_total_frames // overlay_total_frames
@@ -1185,6 +1243,19 @@ def generate_clip_info_list_for_short_camframe(clip, duration, track, project_ha
 
 def edit_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
                   automate_actions, subject_timeranges, image_items):
+    """
+    Desencadena el proceso de edición de gameplay con la configuración dada por los parámetros.
+    Args:
+        hook_timeranges (list): Rangos de tiempo del hook del video.
+        video_items (list): Lista de assets de video del media pool.
+        audio_items (list): Lista de assets de audio del media pool.
+        project (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool (obj): Objeto para controlar el media pool del api de davinci resolve.
+        resolve (obj): Objeto para controlar la instancia de davinci resolve.
+        automate_actions (str): Intrucciones de clicks para simulación de acciones manuales.
+        subject_timeranges (list): Rangos de tiempo del contenido del video.
+        image_items (list): Lista de assets de imágen del media pool.
+    """
     create_hook_for_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve, automate_actions)
     create_intro(video_items, project, media_pool)
     create_subject_for_gameplay(subject_timeranges, video_items, audio_items, project, media_pool, automate_actions)
@@ -1195,6 +1266,19 @@ def edit_gameplay(hook_timeranges, video_items, audio_items, project, media_pool
 
 
 def edit_clip(hook_timeranges, video_items, project, media_pool, resolve, subject_timeranges, image_items):
+    """
+    Desencadena el proceso de edición de clip con la configuración dada por los parámetros.
+    Se usa para extraer partes de un video de gameplay ya editado, manteniendo el formato usual
+    de los videos.
+    Args:
+        hook_timeranges (list): Rangos de tiempo del hook del video.
+        video_items (list): Lista de assets de video del media pool.
+        project (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool (obj): Objeto para controlar el media pool del api de davinci resolve.
+        resolve (obj): Objeto para controlar la instancia de davinci resolve.
+        subject_timeranges (list): Rangos de tiempo del contenido del video.
+        image_items (list): Lista de assets de imágen del media pool.
+    """
     create_hook_for_clip(hook_timeranges, video_items, project, media_pool, resolve)
     create_intro(video_items, project, media_pool)
     create_subject_for_clip(subject_timeranges, video_items, project, media_pool)
@@ -1205,6 +1289,16 @@ def edit_clip(hook_timeranges, video_items, project, media_pool, resolve, subjec
 
 
 def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_handler):
+    """
+    Desencadena el proceso de edición de shorts con la configuración dada por los parámetros.
+    Se usa para extraer shorts de un video de gameplay ya editado, pero transformándolo al
+    formato usual de los shorts.
+    Args:
+        shorts_timeranges (list): Rangos de tiempo de los shorts por extraer.
+        video_items (list): Lista de assets de video del media pool.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
     valid_shorts_duration_or_stop(shorts_timeranges)
     for index, timeranges in enumerate(shorts_timeranges):
         short_number = str(index + 1).zfill(2)
@@ -1249,6 +1343,22 @@ def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_hand
 def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
                automate_actions, subject_timeranges, image_items, video_type,
                shorts_timeranges):
+    """
+    Elige que proceso de edición debe ser desencadenado, dependiendo del tipo de video
+    que se desea producir.
+    Args:
+        hook_timeranges (list): Rangos de tiempo del hook del video.
+        video_items (list): Lista de assets de video del media pool.
+        audio_items (list): Lista de assets de audio del media pool.
+        project (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool (obj): Objeto para controlar el media pool del api de davinci resolve.
+        resolve (obj): Objeto para controlar la instancia de davinci resolve.
+        automate_actions (str): Intrucciones de clicks para simulación de acciones manuales.
+        subject_timeranges (list): Rangos de tiempo del contenido del video.
+        image_items (list): Lista de assets de imágen del media pool.
+        video_type (str): Tipo de video que se editará.
+        shorts_timeranges (list): Rangos de tiempo de los shorts por extraer.
+    """
     validate_timeranges(hook_timeranges)
     validate_timeranges(subject_timeranges)
 
@@ -1267,10 +1377,20 @@ def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, r
 
 
 def main():
+    """
+    Entry point del script, inicializa la ejecución del script y parametriza las
+    funciones que harán el trabajo de edición. El proceso consta de los siguientes
+    pasos:
+    1. Abrir DaVinci Resolve.
+    2. Abrir o crear el archivo base para trabajar.
+    3. Obtener parámetros para producir el video.
+    4. Editar video.
+    5. Guardar cambios en el proyecto de DaVinci Resolve.
+    """
     # abrir davinci resolve
     open_davinci_resolve()
 
-    # create project
+    # abrir o crear el archivo base para trabajar
     resolve = davinci_resolve_script.scriptapp(RESOLVE_INITIALIZER)
     project_manager = resolve.GetProjectManager()
     current_project = project_manager.GetCurrentProject()
@@ -1281,8 +1401,6 @@ def main():
         + '_gameplay_01'
     project_name = choose_suffix_to_project_name(project_name, project_manager)
     project = project_manager.LoadProject(BASE_PROJECT_NAME)
-
-    # verificar si existe proyecto de configuración inicial
     if project is None:
         if params['autoclose']:
             wait_for(SECONDS_TO_WAIT_FOR_DAVINCI_TO_QUIT, INFO_MESSAGE_EXITING_DAVINCI_RESOLVE)
@@ -1294,28 +1412,24 @@ def main():
     assets_dirs = params['gameplay_details']['assets']
     video_type = params['video_type'] # gameplay, clip, shorts
 
-    # ##################
-    # proceso de edición
-    # ##################
-
-    # importar media
+    # obtener parámetros para producir el video
     switch_to_page(PAGE_EDIT_NAME, resolve)
     logger.info(f'Media Items to Load: {assets_dirs}')
     audio_items = import_to_media_pool_dir(assets_dirs['audio'], AUDIO_MEDIA_DIR, media_pool)
     image_items = import_to_media_pool_dir(assets_dirs['image'], IMAGE_MEDIA_DIR, media_pool)
     video_items = import_to_media_pool_dir(assets_dirs['video'], VIDEO_MEDIA_DIR, media_pool)
     logger.info(f'Media Pool Items Loaded: {audio_items}, {image_items}, {video_items}')
-    # parámetros iniciales
     hook_timeranges = params['gameplay_details']['hook']
     subject_timeranges = params['gameplay_details']['subject']
     shorts_timeranges = params['gameplay_details']['shorts']
     automate_actions = params['gameplay_details']['enable_automated_manual_actions']
+
     # editar video
     edit_video(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
                automate_actions, subject_timeranges, image_items, video_type,
                shorts_timeranges)
 
-    # guardar cambios
+    # guardar cambios en el proyecto de DaVinci Resolve
     project_manager.SaveProject()
     if params['autoclose']:
         wait_for(SECONDS_TO_WAIT_FOR_PROJECT_SAVING, INFO_MESSAGE_SAVING_PROJECT)
