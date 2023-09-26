@@ -1,6 +1,6 @@
 <p align="center">
    <a href="https://youtube.com/@eyvotGames" aria-label="Ir a canal de YouTube @eyvotGames">
-    <img src="[drawing.jpg](https://github.com/eyvotCodes/eyvotgames-scripts/blob/master/blob/eyvotgames-logo-340x130.webp?raw=true)" alt="eyvotGames logo" width="170"/>
+    <img src="https://github.com/eyvotCodes/eyvotgames-scripts/blob/master/blob/eyvotgames-logo-340x130.webp?raw=true" alt="eyvotGames logo" width="170"/>
    </a>
 </p>
 
