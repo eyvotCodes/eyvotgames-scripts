@@ -670,7 +670,7 @@ def add_title_to_hook(project_handler, resolve_handler):
 
 def create_hook_for_gameplay(highlights_times, video_items, audio_items,
                 project_handler, media_pool_handler, resolve_handler,
-                automate_actions):
+                automate_actions, use_mic_audio):
     """
     Crear el gancho inicial del video a partir de una lista de rangos de tiempo,
     cada elemento de la lista, a su vez es otra lista que solo pueden tener
@@ -684,6 +684,7 @@ def create_hook_for_gameplay(highlights_times, video_items, audio_items,
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
         resolve_handler (obj): Objeto para controlar la instancia de davinci resolve.
+        use_mic_audio (bool): Indica si se usará el audio del micrófono (si no, se usará el del video).
     """
     switch_to_timeline(TIMELINE_NAME_HOOK, project_handler)
     logger.info(f'Hook Hightlights Timeranges: {highlights_times}')
@@ -692,8 +693,8 @@ def create_hook_for_gameplay(highlights_times, video_items, audio_items,
     add_gameplay_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
     add_camera_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
     add_camframe_to_hook(highlights_times, video_items, project_handler, media_pool_handler)
-    # activar add_micro_to_hook solo si se ha usado audio externo
-    # add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool_handler)
+    if use_mic_audio:
+        add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool_handler)
     if automate_actions:
         process_manual_actions(MANUAL_ACTIONS_FOR_HOOK)
     else:
@@ -843,8 +844,8 @@ def add_micro_to_subject(highlights_times, audio_items, project_handler, media_p
     media_pool_handler.AppendToTimeline(micro_clips_info)
 
 
-def create_subject_for_gameplay(gameplay_times, video_items, audio_items,
-                   project_handler, media_pool_handler, automate_actions):
+def create_subject_for_gameplay(gameplay_times, video_items, audio_items, project_handler,
+                                media_pool_handler, automate_actions, use_mic_audio):
     """
     Crear el subject del video a partir de una lista de rangos de tiempo, cada elemento
     de la lista, a su vez es otra lista que solo pueden tener 2 valores cadena en formato
@@ -861,14 +862,15 @@ def create_subject_for_gameplay(gameplay_times, video_items, audio_items,
         audio_items (list): Lista de assets de audio del media pool.
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+        use_mic_audio (bool): Indica si se usará el audio del micrófono (si no, se usará el del video).
     """
     switch_to_timeline(TIMELINE_NAME_SUBJECT, project_handler)
     logger.info(f'Gameplay Timeranges: {gameplay_times}')
     add_gameplay_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
     add_camera_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
     add_camframe_to_subject(gameplay_times, video_items, project_handler, media_pool_handler)
-    # activar add_micro_to_hook solo si se ha usado audio externo
-    # add_micro_to_hook(gameplay_times, audio_items, project_handler, media_pool_handler)
+    if use_mic_audio:
+        add_micro_to_hook(gameplay_times, audio_items, project_handler, media_pool_handler)
     if automate_actions:
         process_manual_actions(MANUAL_ACTIONS_FOR_SUBJECT)
     else:
@@ -1244,7 +1246,7 @@ def generate_clip_info_list_for_short_camframe(clip, duration, track, project_ha
 
 
 def edit_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
-                  automate_actions, subject_timeranges, image_items):
+                  automate_actions, subject_timeranges, image_items, use_mic_audio):
     """
     Desencadena el proceso de edición de gameplay con la configuración dada por los parámetros.
     Args:
@@ -1257,10 +1259,13 @@ def edit_gameplay(hook_timeranges, video_items, audio_items, project, media_pool
         automate_actions (str): Intrucciones de clicks para simulación de acciones manuales.
         subject_timeranges (list): Rangos de tiempo del contenido del video.
         image_items (list): Lista de assets de imágen del media pool.
+        use_mic_audio (bool): Indica si se usará el audio del micrófono (si no, se usará el del video).
     """
-    create_hook_for_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve, automate_actions)
+    create_hook_for_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
+                             automate_actions, use_mic_audio)
     create_intro(video_items, project, media_pool)
-    create_subject_for_gameplay(subject_timeranges, video_items, audio_items, project, media_pool, automate_actions)
+    create_subject_for_gameplay(subject_timeranges, video_items, audio_items, project, media_pool,
+                                automate_actions, use_mic_audio)
     create_content(project, media_pool)
     create_canvas(video_items, project, media_pool)
     create_main(project, media_pool, resolve)
@@ -1344,7 +1349,7 @@ def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_hand
 
 def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
                automate_actions, subject_timeranges, image_items, video_type,
-               shorts_timeranges):
+               shorts_timeranges, use_mic_audio):
     """
     Elige que proceso de edición debe ser desencadenado, dependiendo del tipo de video
     que se desea producir.
@@ -1360,13 +1365,14 @@ def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, r
         image_items (list): Lista de assets de imágen del media pool.
         video_type (str): Tipo de video que se editará.
         shorts_timeranges (list): Rangos de tiempo de los shorts por extraer.
+        use_mic_audio (bool): Indica si se usará el audio del micrófono (si no, se usará el del video).
     """
     validate_timeranges(hook_timeranges)
     validate_timeranges(subject_timeranges)
 
     if video_type == VIDEO_TYPE_GAMEPLAY:
         edit_gameplay(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
-                      automate_actions, subject_timeranges, image_items)
+                      automate_actions, subject_timeranges, image_items, use_mic_audio)
     elif video_type == VIDEO_TYPE_CLIP:
         edit_clip(hook_timeranges, video_items, project, media_pool, resolve,
                   subject_timeranges, image_items)
@@ -1424,12 +1430,13 @@ def main():
     hook_timeranges = params['gameplay_details']['hook']
     subject_timeranges = params['gameplay_details']['subject']
     shorts_timeranges = params['gameplay_details']['shorts']
+    use_mic_audio = params['gameplay_details']['use_mic_audio']
     automate_actions = params['gameplay_details']['enable_automated_manual_actions']
 
     # editar video
     edit_video(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
                automate_actions, subject_timeranges, image_items, video_type,
-               shorts_timeranges)
+               shorts_timeranges, use_mic_audio)
 
     # guardar cambios en el proyecto de DaVinci Resolve
     project_manager.SaveProject()

@@ -4,10 +4,11 @@
     "gameplay_details": {
         "videogame_name": "",
         "videogame_keyname": "",
+        "use_mic_audio": false,
         "enable_automated_manual_actions": false,
         "assets": {
             "audio": [
-                "path to 'micro' audio file"
+                "path to 'mic' audio file"
             ],
             "image": [
                 "path to 'watermark' image file"
