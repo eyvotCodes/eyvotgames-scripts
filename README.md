@@ -1,12 +1,12 @@
 <p align="center">
-   <a href="https://youtube.com/@eyvotGames" aria-label="Ir a canal de YouTube @eyvotGames">
+   <a href="https://youtube.com/@eyvotGames" aria-label="Ir a canal de YouTube @eyvotGames" target=”_blank”>
     <img src="https://github.com/eyvotCodes/eyvotgames-scripts/blob/master/blob/eyvotgames-logo-340x130.webp?raw=true" alt="eyvotGames logo" width="170"/>
    </a>
 </p>
 
 <h3 align="center">@eyvotGames Scripts</h3>
 <p align="center">
-    Scripts que uso para <a href="https://youtube.com/@eyvotGames" aria-label="Ir a canal de YouTube @eyvotGames">
+    Scripts que uso para <a href="https://youtube.com/@eyvotGames" aria-label="Ir a canal de YouTube @eyvotGames" target=”_blank”>
     mi canal de YouTube sobre videojuegos</a> "<strong>eyvot games</strong>".
 </p>
 
