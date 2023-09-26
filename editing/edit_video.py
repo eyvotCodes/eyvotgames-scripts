@@ -2,6 +2,7 @@
 import datetime
 import json
 import logging
+import os
 import psutil
 import time
 import re
@@ -13,7 +14,8 @@ from tqdm import tqdm
 
 
 # parámetros iniciales
-PARAMS_JSON_FILE_PATH = '/Users/fleyva/projects/@eyvotTest/_youtube/test-assets/params.json'
+PARAMS_JSON_FILE_PATH = \
+    os.environ.get('EYVOT_GAMES_EDIT_VIDEO_PARAMS', '') # params.json
 BASE_PROJECT_NAME = '00-base (Copy)'
 DAVINCI_RESOLVE_APP_NAME = 'DaVinci Resolve'
 DAVINCI_RESOLVE_PROCESS_NAME = 'DaVinciPanelDaemon'

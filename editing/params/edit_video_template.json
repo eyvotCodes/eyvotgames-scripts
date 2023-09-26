@@ -1,0 +1,45 @@
+{
+    "autoclose": false,
+    "video_type": "gameplay",
+    "gameplay_details": {
+        "videogame_name": "",
+        "videogame_keyname": "",
+        "enable_automated_manual_actions": false,
+        "assets": {
+            "audio": [
+                "path to 'micro' audio file"
+            ],
+            "image": [
+                "path to 'watermark' image file"
+            ],
+            "video": [
+                "path to 'gameplay' video file",
+                "path to 'camera' video file",
+                "path to 'camframe' video file",
+                "path to 'intro' video file",
+                "path to 'outro' video file",
+                "path to 'short_background' video file",
+                "path to 'short_overlay' video file"
+            ]
+        },
+
+        "hook": [
+            ["hh:mm:ss", "hh:mm:ss"],
+            ["hh:mm:ss", "hh:mm:ss"]
+        ],
+        "subject": [
+            ["hh:mm:ss", "hh:mm:ss"],
+            ["hh:mm:ss", "hh:mm:ss"]
+        ],
+
+        "shorts": [
+            [
+                ["hh:mm:ss", "hh:mm:ss"],
+                ["hh:mm:ss", "hh:mm:ss"]
+            ],
+            [
+                ["hh:mm:ss", "hh:mm:ss"]
+            ]
+        ]
+    }
+}
