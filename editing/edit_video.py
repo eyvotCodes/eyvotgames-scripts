@@ -9,11 +9,13 @@ import re
 import subprocess
 import DaVinciResolveScript as davinci_resolve_script
 
+from dotenv import load_dotenv
 from pynput.mouse import Button, Controller
 from tqdm import tqdm
 
 
 # parámetros iniciales
+load_dotenv()
 PARAMS_JSON_FILE_PATH = \
     os.environ.get('EYVOT_GAMES_EDIT_VIDEO_PARAMS', '') # params.json
 BASE_PROJECT_NAME = '00-base (Copy)'
@@ -55,15 +57,22 @@ TIMELINE_NAME_INTRO = 'H16.9FHD - Intro'
 TIMELINE_NAME_MAIN = 'H16.9FHD - Main'
 TIMELINE_NAME_SUBJECT = 'H16.9FHD - Subject'
 TIMELINE_NAME_VERTICAL = 'V16.9FHD'
-ASSET_AUDIO_NAME_MICRO = 'micro.mp3'
-ASSET_IMAGE_NAME_WATERMARK = 'watermark.png'
-ASSET_VIDEO_NAME_CAMERA = 'camera.mov'
-ASSET_VIDEO_NAME_CAMFRAME = 'camframe.mov'
-ASSET_VIDEO_NAME_GAMEPLAY = 'gameplay.mov'
-ASSET_VIDEO_NAME_INTRO = 'intro.mov'
-ASSET_VIDEO_NAME_OUTRO = 'outro.mov'
-ASSET_SHORT_OVERLAY = 'short_overlay.mov'
-ASSET_SHORT_BACKGROUND = 'short_background.mov'
+VIDEO_VALID_EXTENSIONS = ['mp4', 'mov']
+IMAGE_VALID_EXTENSIONS = ['png', 'jpg', 'jpeg']
+AUDIO_VALID_EXTENSIONS = ['mp3', 'wav']
+MEDIA_POOL_ITEM_TYPE_VIDEO = 'video'
+MEDIA_POOL_ITEM_TYPE_IMAGE = 'image'
+MEDIA_POOL_ITEM_TYPE_AUDIO = 'audio'
+MEDIA_POOL_ITEM_TYPE_TIMELINE = 'timeline'
+ASSET_AUDIO_NAME_MIC = 'mic'
+ASSET_IMAGE_NAME_WATERMARK = 'watermark'
+ASSET_VIDEO_NAME_CAMERA = 'camera'
+ASSET_VIDEO_NAME_CAMFRAME = 'camframe'
+ASSET_VIDEO_NAME_GAMEPLAY = 'gameplay'
+ASSET_VIDEO_NAME_INTRO = 'intro'
+ASSET_VIDEO_NAME_OUTRO = 'outro'
+ASSET_SHORT_OVERLAY = 'short_overlay'
+ASSET_SHORT_BACKGROUND = 'short_background'
 HOOK_TRACK_GAMEPLAY = 'gameplay'
 HOOK_TRACK_CAMERA = 'camera'
 HOOK_TRACK_CAMFRAME = 'camframe'
@@ -177,6 +186,7 @@ ERROR_MESSAGE_INCORREC_TIMESTRIG_FORMAT = 'Formato de timestring hh:mm:ss incorr
 ERROR_MESSAGE_INVALID_VIDEO_TYPE = 'El tipo de video indicado no es válido.'
 ERROR_MESSAGE_INVALID_SHORT_DURATION = 'La duración del short no es válida.'
 ERROR_MESSAGE_INVALID_TIMERANGE = 'El rango de tiempo no es válido.'
+ERROR_MESSAGE_INVALID_ASSET_TYPE = 'El tipo de asset no es válido.'
 
 # guide messages
 GUIDE_MESSAGE_ADD_OUTRO_KEYFRAMES = 'Agrega los KeyFrames a\nCenter X Y  ◇ → ◆\nSize        ◇ → ◆'
@@ -396,23 +406,50 @@ def switch_to_timeline(timeline_name, project_handler):
     logger.info(f'Timeline Audio Tracks: {hook_timeline.GetTrackCount(TRACK_TYPE_AUDIO)}')
 
 
-def get_asset_by_name(name, media_pool_items):
+def get_valid_extensions_for_asset_type(asset_type):
+    """
+    Obtiene la lista de extensiones válidas para un tipo de asset (video, imágen o audio).
+    Args:
+        asset_type (str): Tipo de asset por obtener sus extensiones válidas.
+    Returns:
+        list: Lista de extensiones válidas para el tipo de asset.
+    Raises:
+        Exception: Si el tipo de asset no es válido.
+    """
+    if asset_type == MEDIA_POOL_ITEM_TYPE_VIDEO:
+        return VIDEO_VALID_EXTENSIONS
+    elif asset_type == MEDIA_POOL_ITEM_TYPE_IMAGE:
+        return IMAGE_VALID_EXTENSIONS
+    elif asset_type == MEDIA_POOL_ITEM_TYPE_AUDIO:
+        return AUDIO_VALID_EXTENSIONS
+    else:
+        raise Exception(ERROR_MESSAGE_INVALID_ASSET_TYPE + '\n' + asset_type)
+
+
+def get_asset_by_name(name, media_pool_items, asset_type):
     """
     Obtiene un media pool item buscándolo por su nombre.
     Args:
         name (str): Nombre del asset a obtener.
         media_pool_items (list): Lista de assets donde se realizará la búsqueda.
+        asset_type (str): Tipo de asset por obtener (video, imágen o audio).
     Returns:
         obj: Media Pool Item del asset buscado.
     Raises:
         Exception: Si el asset no ha sido encontrado.
     """
+    valid_extensions = get_valid_extensions_for_asset_type(asset_type)
+    are_files_with_extension = asset_type != MEDIA_POOL_ITEM_TYPE_TIMELINE
     number_of_items = len(media_pool_items)
     for item_index in range(number_of_items):
         current_asset = media_pool_items[item_index]
-        if current_asset.GetName() == name:
-            logger.info(f'asset {name} loaded {dir(current_asset)}')
-            return current_asset
+        for extension in valid_extensions:
+            media_pool_item_name = name
+            if are_files_with_extension:
+                media_pool_item_name = media_pool_item_name + '.' + extension
+            if current_asset.GetName() == media_pool_item_name:
+                logger.info(f'asset {name} loaded {dir(current_asset)}')
+                return current_asset
     raise Exception(ERROR_MESSAGE_ASSET_NOT_FOUND + '\n' + name)
 
 
@@ -588,7 +625,7 @@ def add_gameplay_to_hook(highlights_times, video_items, project_handler, media_p
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
-    gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
+    gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
     gameplay_clips_info = generate_clip_info_list_from_highlights(
         gameplay_asset, highlights_times, HOOK_TRACK_GAMEPLAY, project_handler, track_type=TRACK_TYPE_VIDEO)
     logger.info(f'gameplay_clips_info {gameplay_clips_info}')
@@ -605,7 +642,7 @@ def add_camera_to_hook(highlights_times, video_items, project_handler, media_poo
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
-    camera_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMERA, video_items)
+    camera_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMERA, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
     camera_clips_info = generate_clip_info_list_from_highlights(
         camera_asset, highlights_times, HOOK_TRACK_CAMERA, project_handler, track_type=TRACK_TYPE_VIDEO)
     logger.info(f'camera_clips_info {camera_clips_info}')
@@ -624,7 +661,7 @@ def add_camframe_to_hook(highlights_times, video_items, project_handler, media_p
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
-    camframe_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMFRAME, video_items)
+    camframe_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMFRAME, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
     camframe_clips_info = generate_camframe_clip_info(
         camframe_asset, highlights_times, HOOK_TRACK_CAMFRAME, project_handler)
     logger.info(f'camframe_clips_info {camframe_clips_info}')
@@ -641,7 +678,7 @@ def add_micro_to_hook(highlights_times, audio_items, project_handler, media_pool
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
-    micro_asset = get_asset_by_name(ASSET_AUDIO_NAME_MICRO, audio_items)
+    micro_asset = get_asset_by_name(ASSET_AUDIO_NAME_MIC, audio_items, MEDIA_POOL_ITEM_TYPE_AUDIO)
     micro_clips_info = generate_clip_info_list_from_highlights(
         micro_asset, highlights_times, HOOK_TRACK_MIC, project_handler, track_type=TRACK_TYPE_AUDIO)
     logger.info(f'micro_clips_info {micro_clips_info}')
@@ -753,7 +790,7 @@ def add_intro(video_items, project_handler, media_pool_handler):
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
-    intro_asset = get_asset_by_name(ASSET_VIDEO_NAME_INTRO, video_items)
+    intro_asset = get_asset_by_name(ASSET_VIDEO_NAME_INTRO, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
     intro_clip_info = generate_clip_info(
         intro_asset, INTRO_TRACK, project_handler, track_type=TRACK_TYPE_VIDEO)
     logger.info(f'intro_clip_info {intro_clip_info}')
@@ -782,7 +819,7 @@ def add_gameplay_to_subject(gameplay_times, video_items, project_handler, media_
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
-    gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
+    gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
     gameplay_clips_info = generate_clip_info_list_from_highlights(
         gameplay_asset, gameplay_times, SUBJECT_TRACK_GAMEPLAY, project_handler,
         track_type=TRACK_TYPE_VIDEO)
@@ -800,7 +837,7 @@ def add_camera_to_subject(gameplay_times, video_items, project_handler, media_po
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
-    camera_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMERA, video_items)
+    camera_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMERA, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
     camera_clips_info = generate_clip_info_list_from_highlights(
         camera_asset, gameplay_times, SUBJECT_TRACK_CAMERA, project_handler,
         track_type=TRACK_TYPE_VIDEO)
@@ -820,7 +857,7 @@ def add_camframe_to_subject(gameplay_times, video_items, project_handler, media_
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
-    camframe_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMFRAME, video_items)
+    camframe_asset = get_asset_by_name(ASSET_VIDEO_NAME_CAMFRAME, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
     camframe_clips_info = generate_camframe_clip_info(
         camframe_asset, gameplay_times, SUBJECT_TRACK_CAMFRAME, project_handler)
     logger.info(f'camframe_clips_info {camframe_clips_info}')
@@ -837,7 +874,7 @@ def add_micro_to_subject(highlights_times, audio_items, project_handler, media_p
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
-    micro_asset = get_asset_by_name(ASSET_AUDIO_NAME_MICRO, audio_items)
+    micro_asset = get_asset_by_name(ASSET_AUDIO_NAME_MIC, audio_items, MEDIA_POOL_ITEM_TYPE_AUDIO)
     micro_clips_info = generate_clip_info_list_from_highlights(
         micro_asset, highlights_times, SUBJECT_TRACK_MIC, project_handler, track_type=TRACK_TYPE_AUDIO)
     logger.info(f'micro_clips_info {micro_clips_info}')
@@ -932,7 +969,7 @@ def add_timeline(timeline, track, H169FHD_items, project_handler, media_pool_han
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
-    timeline_asset = get_asset_by_name(timeline, H169FHD_items)
+    timeline_asset = get_asset_by_name(timeline, H169FHD_items, MEDIA_POOL_ITEM_TYPE_TIMELINE)
     intro_clip_info = generate_clip_info(
         timeline_asset, track, project_handler, track_type=TRACK_TYPE_VIDEO)
     logger.info(f'intro_clip_info {intro_clip_info}')
@@ -968,7 +1005,7 @@ def add_outro(video_items, project_handler, media_pool_handler):
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
-    intro_asset = get_asset_by_name(ASSET_VIDEO_NAME_OUTRO, video_items)
+    intro_asset = get_asset_by_name(ASSET_VIDEO_NAME_OUTRO, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
     intro_clip_info = generate_clip_info(
         intro_asset, OUTRO_TRACK, project_handler, track_type=TRACK_TYPE_VIDEO)
     logger.info(f'intro_clip_info {intro_clip_info}')
@@ -1022,7 +1059,7 @@ def add_timeline_in_timecode(timeline, track, start_timecode, H169FHD_items,
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
-    timeline_asset = get_asset_by_name(timeline, H169FHD_items)
+    timeline_asset = get_asset_by_name(timeline, H169FHD_items, MEDIA_POOL_ITEM_TYPE_TIMELINE)
     intro_clip_info = generate_clip_info_for_timecode(
         timeline_asset, track, start_timecode, project_handler,
         track_type=TRACK_TYPE_VIDEO)
@@ -1111,7 +1148,7 @@ def create_H169FHD(image_items, project_handler, media_pool_handler):
     H169FHD_items = get_H169FHD_media_pool_dir_items(media_pool_handler)
     add_timeline(TIMELINE_NAME_MAIN, H169HD_MAIN_TRACK, H169FHD_items,
                  project_handler, media_pool_handler)
-    watermark_asset = get_asset_by_name(ASSET_IMAGE_NAME_WATERMARK, image_items)
+    watermark_asset = get_asset_by_name(ASSET_IMAGE_NAME_WATERMARK, image_items, MEDIA_POOL_ITEM_TYPE_IMAGE)
     watermark_info = generate_watermark_clip_info(
         watermark_asset, H169HD_WATERMARK_TRACK, project_handler)
     logger.info(f'watermark_info {watermark_info}')
@@ -1313,14 +1350,14 @@ def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_hand
         short_timeline = project_handler.GetCurrentTimeline()
         short_timeline = short_timeline.DuplicateTimeline(f'{TIMELINE_NAME_VERTICAL}_{short_number}')
 
-        background_asset = get_asset_by_name(ASSET_SHORT_BACKGROUND, video_items)
+        background_asset = get_asset_by_name(ASSET_SHORT_BACKGROUND, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
         short_duration = calculate_short_duration(timeranges)
         background_clips_info = generate_clip_info_list_for_short_background(
             background_asset, short_duration, SHORT_TRACK_BACKGROUND, project_handler)
         logger.info(f'short-{short_number}_clips_info {background_clips_info}')
         gameplay_items = media_pool_handler.AppendToTimeline(background_clips_info)
 
-        gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items)
+        gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
         gameplay_clips_info = generate_clip_info_list_from_highlights(
             gameplay_asset, timeranges, HOOK_TRACK_GAMEPLAY, project_handler)
         logger.info(f'short-{short_number}_clips_info {gameplay_clips_info}')
@@ -1337,7 +1374,7 @@ def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_hand
             for property in SHORT_CAMERA_PROPERTIES:
                 timeline_item.SetProperty(*property)
 
-        overlay_asset = get_asset_by_name(ASSET_SHORT_OVERLAY, video_items)
+        overlay_asset = get_asset_by_name(ASSET_SHORT_OVERLAY, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
         short_duration = calculate_short_duration(timeranges)
         gameplay_clips_info = generate_clip_info_list_for_short_camframe(
             overlay_asset, short_duration, SHORT_TRACK_OVERLAY, project_handler)
