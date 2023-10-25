@@ -416,7 +416,8 @@ def get_valid_extensions_for_asset_type(asset_type):
     Raises:
         Exception: Si el tipo de asset no es válido.
     """
-    if asset_type == MEDIA_POOL_ITEM_TYPE_VIDEO:
+    if asset_type == MEDIA_POOL_ITEM_TYPE_VIDEO\
+            or asset_type == MEDIA_POOL_ITEM_TYPE_TIMELINE:
         return VIDEO_VALID_EXTENSIONS
     elif asset_type == MEDIA_POOL_ITEM_TYPE_IMAGE:
         return IMAGE_VALID_EXTENSIONS
