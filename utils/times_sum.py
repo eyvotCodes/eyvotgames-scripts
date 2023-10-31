@@ -37,11 +37,14 @@ def gameplay_times_sum(cam_time, gmp_time, time_to_add):
     gmp_new_secs, gmp_new_frames = divmod(gmp_new_total_frames, 30)
 
     # results
-    cam_new_time = f"{cam_new_hours:02d}:{cam_new_mins:02d}:{cam_new_secs:02d}:{cam_new_frames:02d}"
-    gmp_new_time = f"{gmp_new_hours:02d}:{gmp_new_mins:02d}:{gmp_new_secs:02d}:{gmp_new_frames:02d}"
-    print('    +', time_to_add)
-    print('cam :', cam_time, '->', cam_new_time)
-    print('gmp :', gmp_time, '->', gmp_new_time)
+    ffmpeg_time_to_add = f"{hours_to_add:02d}:{mins_to_add:02d}:{secs_to_add:02d}.{frames_to_add:02d}"
+    ffmpeg_cam_time = f"{cam_hurs:02d}:{cam_mins:02d}:{cam_secs:02d}.{cam_frames:02d}"
+    ffmpeg_gmp_time = f"{gmp_hours:02d}:{gmp_mins:02d}:{gmp_secs:02d}.{gmp_frames:02d}"
+    ffmpeg_cam_new_time = f"{cam_new_hours:02d}:{cam_new_mins:02d}:{cam_new_secs:02d}.{cam_new_frames:02d}"
+    ffmpeg_gmp_new_time = f"{gmp_new_hours:02d}:{gmp_new_mins:02d}:{gmp_new_secs:02d}.{gmp_new_frames:02d}"
+    print('    +', ffmpeg_time_to_add)
+    print('cam :', ffmpeg_cam_time, '->', ffmpeg_cam_new_time)
+    print('gmp :', ffmpeg_gmp_time, '->', ffmpeg_gmp_new_time)
 
 
 if __name__ == "__main__":
