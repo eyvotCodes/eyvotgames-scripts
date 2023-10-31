@@ -9,7 +9,7 @@ USAGE_MESSAGE = 'Uso: times_sum.py cam_time gmp_time time_to_add'
 NOT_VALID_FORMAT_ERROR_MESSAGE = 'Error: Los tiempos deben estar en el formato "hh:mm:ss:ff"'
 
 
-def sumar_tiempos(cam_time, gmp_time, time_to_add):
+def gameplay_times_sum(cam_time, gmp_time, time_to_add):
     if not TIME_FORMAT_REGEX.match(cam_time) \
           or not TIME_FORMAT_REGEX.match(gmp_time) \
           or not TIME_FORMAT_REGEX.match(time_to_add):
@@ -39,8 +39,9 @@ def sumar_tiempos(cam_time, gmp_time, time_to_add):
     # results
     cam_new_time = f"{cam_new_hours:02d}:{cam_new_mins:02d}:{cam_new_secs:02d}:{cam_new_frames:02d}"
     gmp_new_time = f"{gmp_new_hours:02d}:{gmp_new_mins:02d}:{gmp_new_secs:02d}:{gmp_new_frames:02d}"
-    print("cam:", cam_new_time)
-    print("gmp:", gmp_new_time)
+    print('    +', time_to_add)
+    print('cam :', cam_time, '->', cam_new_time)
+    print('gmp :', gmp_time, '->', gmp_new_time)
 
 
 if __name__ == "__main__":
@@ -48,4 +49,4 @@ if __name__ == "__main__":
         print(USAGE_MESSAGE)
     else:
         cam_time, gmp_time, time_to_add = sys.argv[1], sys.argv[2], sys.argv[3]
-        sumar_tiempos(cam_time, gmp_time, time_to_add)
+        gameplay_times_sum(cam_time, gmp_time, time_to_add)
