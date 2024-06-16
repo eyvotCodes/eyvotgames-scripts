@@ -6,6 +6,7 @@
         "videogame_keyname": "",
         "use_mic_audio": false,
         "enable_automated_manual_actions": false,
+        "validate_shorts_duration": false,
         "assets": {
             "audio": [
                 "path to 'mic' audio file"
@@ -21,6 +22,11 @@
                 "path to 'outro' video file",
                 "path to 'short_background' video file",
                 "path to 'short_overlay' video file"
+            ],
+            "eldenring": [
+                "path to game focus overlay",
+                "path to reaction focus overlay",
+                "path to info overlay"
             ]
         },
 
@@ -35,11 +41,11 @@
 
         "shorts": [
             [
-                ["hh:mm:ss", "hh:mm:ss"],
-                ["hh:mm:ss", "hh:mm:ss"]
+                { "times": ["hh:mm:ss", "hh:mm:ss"], "focus": "'game' or 'reaction'"},
+                { "times": ["hh:mm:ss", "hh:mm:ss"], "focus": "'game' or 'reaction'"}
             ],
             [
-                ["hh:mm:ss", "hh:mm:ss"]
+                { "times": ["hh:mm:ss", "hh:mm:ss"], "focus": "'game' or 'reaction'"}
             ]
         ]
     }

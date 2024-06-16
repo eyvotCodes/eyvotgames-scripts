@@ -80,6 +80,9 @@ HOOK_TRACK_MIC = 'mic'
 HOOK_TRACK_TITLE = 'title'
 SHORT_TRACK_BACKGROUND = 'background'
 SHORT_TRACK_OVERLAY = 'overlay'
+SHORT_TIMERANGE_FOCUS_MODE_GAME = 'game'
+SHORT_TIMERANGE_FOCUS_MODE_REACTION = 'reaction'
+SHORT_INITIAL_HOOK_SCENE_CHANGE_DURATION_FPS = 6
 HOOK_TITLE = 'Más adelante en este video...'
 INTRO_TRACK = 'intro'
 SUBJECT_TRACK_GAMEPLAY = 'gameplay'
@@ -96,6 +99,7 @@ VIDEO_TYPE_GAMEPLAY = 'gameplay'
 VIDEO_TYPE_CLIP = 'clip'
 VIDEO_TYPE_CLIPS = 'clips'
 VIDEO_TYPE_SHORTS = 'shorts'
+VIDEOGAME_ELDENRING_KEYNAME = 'eldenring'
 START_TIMECODE = '01:00:00:00'
 SHORT_MAX_DURATION_IN_SECONDS = 59
 START_FRAME = 0
@@ -130,6 +134,32 @@ SHORT_CAMERA_PROPERTIES = [
     ('CropRight', 15.00),
     ('CropTop', 214.00),
     ('CropBottom', 200.00)]
+
+# specific convenions for elden ring
+ASSET_SHORT_OVERLAY_ELDENRING_GAME = 'short_overlay_eldenring_game'
+ASSET_SHORT_OVERLAY_ELDENRING_REACTION = 'short_overlay_eldenring_reaction'
+ASSET_SHORT_OVERLAY_ELDENRING_INFO = 'short_overlay_eldenring_info'
+SHORT_ELDENRING_GAMEPLAY_PROPERTIES = [
+    ('ZoomX', 3.160),
+    ('ZoomY', 3.160)]
+SHORT_ELDENRING_CAMERA_GAME_PROPERTIES = [
+    ('ZoomX', 2.200),
+    ('ZoomY', 2.200),
+    ('AnchorPointX', 515.000),
+    ('AnchorPointY', -394.000),
+    ('CropLeft', 891.400),
+    ('CropRight', 50.000),
+    ('CropTop', 228.000),
+    ('CropBottom', 238.001)]
+SHORT_ELDENRING_CAMERA_REACTION_PROPERTIES = [
+    ('ZoomX', 4.500),
+    ('ZoomY', 4.500),
+    ('AnchorPointX', 540.000),
+    ('AnchorPointY', -80.000),
+    ('CropLeft', 891.400),
+    ('CropRight', 50.000),
+    ('CropTop', 228.000),
+    ('CropBottom', 238.001)]
 
 # mouse manual actions
 # el delay se usa para evitar conflictos con el
@@ -185,6 +215,7 @@ ERROR_MESSAGE_ASSET_NOT_FOUND = 'No se encontró el asset en la lista dada.'
 ERROR_MESSAGE_INCORREC_TIMESTRIG_FORMAT = 'Formato de timestring hh:mm:ss incorrecto.'
 ERROR_MESSAGE_INVALID_VIDEO_TYPE = 'El tipo de video indicado no es válido.'
 ERROR_MESSAGE_INVALID_SHORT_DURATION = 'La duración del short no es válida.'
+ERROR_MESSAGE_INVALID_SHORT_FOCUS_MODE = 'Los shorts siempre deben iniciar poniendo el foco en la reacción.'
 ERROR_MESSAGE_INVALID_TIMERANGE = 'El rango de tiempo no es válido.'
 ERROR_MESSAGE_INVALID_ASSET_TYPE = 'El tipo de asset no es válido.'
 
@@ -536,6 +567,69 @@ def generate_clip_info_list_from_highlights(clip, highlights, track, project_han
         if media_type:
             clip_info['mediaType'] = media_type
         clips_info.append(clip_info)
+        logger.info(f'preparing {(end_frame - start_frame + NOT_OVERLAPPING_FRAME) / 30}' + \
+                    f'sec of {clip.GetName()} clip to add to {track} track')
+    return clips_info
+
+
+def generate_clip_info_list_from_highlights_for_shorts(clip, highlights, track, project_handler,
+                                                       media_type=None, track_type=TRACK_TYPE_VIDEO,
+                                                       clip_overlay_reaction=None, with_hook=False):
+    """
+    Obtiene una lista de directorios con información del media clip entendible por
+    DaVinci Resolve. Esta información detalla qué partes del clip dado se agregarán
+    a la línea del tiempo actual.
+    Args:
+        clip (obj): Media pool item del api de davinci resolve.
+        highlights (list): Rangos de tiempo por convetir a clip info.
+        track (str): Nombre del track del timeline donde se desea agregar el clip.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_type (int): Valor opcional entero para usar constantes media type del api de davinci resolve.
+        track_type (str): Valor opcional cadena para usar constantes track type del api de davinci resolve.
+        clip_overlay_reaction (obj): Si no es nulo, indica que será un clip de overlay que puede ser
+                                     centrado en el juego 'clip' o
+                                     centrado en la reacción 'clip_overlay_reaction'
+    Returns:
+        dict: Lista de directorios con información del clip a importar.
+    """
+    clips_info = []
+    for index, highlight in enumerate(highlights):
+        start_timestring = highlight['times'][0] # el primer elemento siempre es el inicio
+        end_timestring = highlight['times'][1] # el segundo elemento siempre es el final
+        start_frame = timestring_to_second(start_timestring)*FPS
+        end_frame = timestring_to_second(end_timestring)*FPS - NOT_OVERLAPPING_FRAME
+        track_index = get_track_index(track, project_handler, track_type)
+        if with_hook and index == 0:
+            clip_info_first_6_frames = {
+                    'mediaPoolItem': clip,
+                    'trackIndex': track_index,
+                    'startFrame' : start_frame,
+                    'endFrame' : start_frame + SHORT_INITIAL_HOOK_SCENE_CHANGE_DURATION_FPS }
+            clip_info_after_6_frames = {
+                    'mediaPoolItem': clip if clip_overlay_reaction is None else clip_overlay_reaction,
+                    'trackIndex': track_index,
+                    'startFrame' : start_frame + SHORT_INITIAL_HOOK_SCENE_CHANGE_DURATION_FPS + 1,
+                    'endFrame' : end_frame }
+            if media_type:
+                clip_info['mediaType'] = media_type
+            clips_info.append(clip_info_first_6_frames)
+            clips_info.append(clip_info_after_6_frames)
+        else:
+            if clip_overlay_reaction is not None and highlight['focus'] == SHORT_TIMERANGE_FOCUS_MODE_REACTION:
+                clip_info = {
+                    'mediaPoolItem': clip_overlay_reaction,
+                    'trackIndex': track_index,
+                    'startFrame' : start_frame,
+                    'endFrame' : end_frame }
+            else:
+                clip_info = {
+                    'mediaPoolItem': clip,
+                    'trackIndex': track_index,
+                    'startFrame' : start_frame,
+                    'endFrame' : end_frame }
+            if media_type:
+                clip_info['mediaType'] = media_type
+            clips_info.append(clip_info)
         logger.info(f'preparing {(end_frame - start_frame + NOT_OVERLAPPING_FRAME) / 30}' + \
                     f'sec of {clip.GetName()} clip to add to {track} track')
     return clips_info
@@ -1167,8 +1261,8 @@ def calculate_short_duration(short_timeranges):
     """
     short_duration = 0
     for timeranges in short_timeranges:
-        start_time = list(map(int, timeranges[0].split(':')))
-        end_time = list(map(int, timeranges[1].split(':')))
+        start_time = list(map(int, timeranges['times'][0].split(':')))
+        end_time = list(map(int, timeranges['times'][1].split(':')))
         short_duration += (end_time[0] - start_time[0]) * 3600\
             + (end_time[1] - start_time[1]) * 60 + (end_time[2] - start_time[2])
     return short_duration
@@ -1333,7 +1427,44 @@ def edit_clip(hook_timeranges, video_items, project, media_pool, resolve, subjec
     create_H169FHD(image_items, project, media_pool)
 
 
-def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_handler):
+def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_handler,
+                validate_shorts_duration, videogame_keyname):
+    """
+    Revisa qué tipo de proceso de edición de shorts desencadenar. Además valida la duración total
+    de los mismos, en caso de estar indicado de esa forma en los parámetros.
+    Args:
+        shorts_timeranges (list): Rangos de tiempo de los shorts por extraer.
+        video_items (list): Lista de assets de video del media pool.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+        validate_shorts_duration (bool): Indica si se validará o no la duración de cada short.
+        videogame_keyname (str): Nombre clave del videojuego sobre el que se realiza la edición.
+    """
+    if validate_shorts_duration:
+        valid_shorts_duration_or_stop(shorts_timeranges)
+    first_timerange_of_shorts_always_focus_reaction_or_stop(shorts_timeranges)
+    
+    if videogame_keyname == VIDEOGAME_ELDENRING_KEYNAME:
+        execute_shorts_eldenring_edition(shorts_timeranges, video_items, project_handler, media_pool_handler)
+    else:
+        execute_shorts_default_edition(shorts_timeranges, video_items, project_handler, media_pool_handler)
+
+
+def first_timerange_of_shorts_always_focus_reaction_or_stop(shorts_timeranges):
+    """
+    Verifica que el primer timerange de todos los shorts tiempre tenga el foco en la reacción,
+    de lo contrario la ejecución del programa se detiene.
+    Args:
+        shorts_timeranges (list): Listas de rangos de tiempo de todos los shorts.
+    """
+    for index, short_timeranges in enumerate(shorts_timeranges):
+        short_number = str(index + 1).zfill(2)
+        if short_timeranges[0]['focus'] != SHORT_TIMERANGE_FOCUS_MODE_REACTION:
+            raise Exception(f'{ERROR_MESSAGE_INVALID_SHORT_FOCUS_MODE}'\
+                            + f'\nshort-{short_number}')
+
+
+def execute_shorts_default_edition(shorts_timeranges, video_items, project_handler, media_pool_handler):
     """
     Desencadena el proceso de edición de shorts con la configuración dada por los parámetros.
     Se usa para extraer shorts de un video de gameplay ya editado, pero transformándolo al
@@ -1344,7 +1475,6 @@ def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_hand
         project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
         media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
     """
-    valid_shorts_duration_or_stop(shorts_timeranges)
     for index, timeranges in enumerate(shorts_timeranges):
         short_number = str(index + 1).zfill(2)
         switch_to_timeline(TIMELINE_NAME_VERTICAL, project_handler)
@@ -1359,7 +1489,7 @@ def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_hand
         gameplay_items = media_pool_handler.AppendToTimeline(background_clips_info)
 
         gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
-        gameplay_clips_info = generate_clip_info_list_from_highlights(
+        gameplay_clips_info = generate_clip_info_list_from_highlights_for_shorts(
             gameplay_asset, timeranges, HOOK_TRACK_GAMEPLAY, project_handler)
         logger.info(f'short-{short_number}_clips_info {gameplay_clips_info}')
         gameplay_items = media_pool_handler.AppendToTimeline(gameplay_clips_info)
@@ -1367,7 +1497,7 @@ def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_hand
             for property in SHORT_GAMEPLAY_PROPERTIES:
                 timeline_item.SetProperty(*property)
         
-        camera_clips_info = generate_clip_info_list_from_highlights(
+        camera_clips_info = generate_clip_info_list_from_highlights_for_shorts(
             gameplay_asset, timeranges, HOOK_TRACK_CAMERA, project_handler)
         logger.info(f'short-{short_number}_clips_info {camera_clips_info}')
         camera_items = media_pool_handler.AppendToTimeline(camera_clips_info)
@@ -1385,9 +1515,77 @@ def edit_shorts(shorts_timeranges, video_items, project_handler, media_pool_hand
         wait_for_user_input()
 
 
+def execute_shorts_eldenring_edition(shorts_timeranges, video_items, project_handler, media_pool_handler):
+    """
+    Desencadena el proceso de edición de shorts específicos de elden ring con la configuración
+    dada por los parámetros.
+    Se usa para extraer shorts de un video de gameplay ya editado, pero transformándolo al
+    formato usual de los shorts.
+    Args:
+        shorts_timeranges (list): Rangos de tiempo de los shorts por extraer.
+        video_items (list): Lista de assets de video del media pool.
+        project_handler (obj): Objeto para controlar el proyecto del api de davinci resolve.
+        media_pool_handler (obj): Objeto para controlar el media pool del api de davinci resolve.
+    """
+    for index, timeranges in enumerate(shorts_timeranges):
+        short_number = str(index + 1).zfill(2)
+        switch_to_timeline(TIMELINE_NAME_VERTICAL, project_handler)
+        short_timeline = project_handler.GetCurrentTimeline()
+        short_timeline = short_timeline.DuplicateTimeline(f'{TIMELINE_NAME_VERTICAL}_{short_number}')
+
+        gameplay_asset = get_asset_by_name(ASSET_VIDEO_NAME_GAMEPLAY, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
+        gameplay_clips_info = generate_clip_info_list_from_highlights_for_shorts(
+            gameplay_asset, timeranges, HOOK_TRACK_GAMEPLAY, project_handler)
+        logger.info(f'short-{short_number}_clips_info {gameplay_clips_info}')
+        gameplay_items = media_pool_handler.AppendToTimeline(gameplay_clips_info)
+        for timeline_item in gameplay_items:
+            for property in SHORT_ELDENRING_GAMEPLAY_PROPERTIES:
+                timeline_item.SetProperty(*property)
+        
+        camera_clips_info = generate_clip_info_list_from_highlights_for_shorts(
+            gameplay_asset, timeranges, HOOK_TRACK_CAMERA, project_handler,
+            with_hook=True)
+        logger.info(f'short-{short_number}_clips_info {camera_clips_info}')
+        camera_items = media_pool_handler.AppendToTimeline(camera_clips_info)
+        for index, timeline_item in enumerate(camera_items):
+            # los indices de los timeranges siempre van a coincidir con los de los camera_items + 1
+            # esto por los frames iniciales de hook
+            if index == 0: # primer elemento corresponde al hook y siempre cambiará de 'game' a 'reaction'
+                for property in SHORT_ELDENRING_CAMERA_GAME_PROPERTIES:
+                    timeline_item.SetProperty(*property)
+            elif timeranges[index-1]['focus'] == SHORT_TIMERANGE_FOCUS_MODE_REACTION:
+                for property in SHORT_ELDENRING_CAMERA_REACTION_PROPERTIES:
+                    timeline_item.SetProperty(*property)
+            elif timeranges[index-1]['focus'] == SHORT_TIMERANGE_FOCUS_MODE_GAME:
+                for property in SHORT_ELDENRING_CAMERA_GAME_PROPERTIES:
+                    timeline_item.SetProperty(*property)
+            else:
+                for property in SHORT_ELDENRING_CAMERA_GAME_PROPERTIES:
+                    timeline_item.SetProperty(*property)
+        
+        overlay_game_focus_asset = get_asset_by_name(
+            ASSET_SHORT_OVERLAY_ELDENRING_GAME, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
+        overlay_reaction_focus_asset = get_asset_by_name(
+            ASSET_SHORT_OVERLAY_ELDENRING_REACTION, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
+        overlay_clips_info = generate_clip_info_list_from_highlights_for_shorts(
+            overlay_game_focus_asset, timeranges, HOOK_TRACK_CAMFRAME, project_handler,
+            with_hook=True, clip_overlay_reaction=overlay_reaction_focus_asset)
+        logger.info(f'short-{short_number}_clips_info {camera_clips_info}')
+        media_pool_handler.AppendToTimeline(overlay_clips_info) # se puede almacenar el resultado en una variable
+
+        info_asset = get_asset_by_name(ASSET_SHORT_OVERLAY_ELDENRING_INFO, video_items, MEDIA_POOL_ITEM_TYPE_VIDEO)
+        short_duration = calculate_short_duration(timeranges)
+        overlay_clips_info = generate_clip_info_list_for_short_camframe(
+            info_asset, short_duration, SHORT_TRACK_OVERLAY, project_handler)
+        logger.info(f'short-{short_number}_clips_info {overlay_clips_info}')
+        media_pool_handler.AppendToTimeline(overlay_clips_info) # se puede almacenar el resultado en una variable
+
+        wait_for_user_input()
+
+
 def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
                automate_actions, subject_timeranges, image_items, video_type,
-               shorts_timeranges, use_mic_audio):
+               shorts_timeranges, use_mic_audio, validate_shorts_duration, videogame_keyname):
     """
     Elige que proceso de edición debe ser desencadenado, dependiendo del tipo de video
     que se desea producir.
@@ -1404,6 +1602,8 @@ def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, r
         video_type (str): Tipo de video que se editará.
         shorts_timeranges (list): Rangos de tiempo de los shorts por extraer.
         use_mic_audio (bool): Indica si se usará el audio del micrófono (si no, se usará el del video).
+        validate_shorts_duration (bool): Indica si se validará o no la duración de cada short.
+        videogame_keyname (str): Nombre clave del videojuego sobre el que se realiza la edición.
     """
     validate_timeranges(hook_timeranges)
     validate_timeranges(subject_timeranges)
@@ -1415,7 +1615,7 @@ def edit_video(hook_timeranges, video_items, audio_items, project, media_pool, r
         edit_clip(hook_timeranges, video_items, project, media_pool, resolve,
                   subject_timeranges, image_items)
     elif video_type == VIDEO_TYPE_SHORTS:
-        edit_shorts(shorts_timeranges, video_items, project, media_pool)
+        edit_shorts(shorts_timeranges, video_items, project, media_pool, validate_shorts_duration, videogame_keyname)
     elif video_type == VIDEO_TYPE_CLIPS:
         pass
     else:
@@ -1470,11 +1670,17 @@ def main():
     shorts_timeranges = params['gameplay_details']['shorts']
     use_mic_audio = params['gameplay_details']['use_mic_audio']
     automate_actions = params['gameplay_details']['enable_automated_manual_actions']
+    validate_shorts_duration = params['gameplay_details']['validate_shorts_duration']
+    videogame_keyname = params['gameplay_details']['videogame_keyname']
+    # parámetros adicionales de videojuegos específicos
+    if videogame_keyname == VIDEOGAME_ELDENRING_KEYNAME:
+        eldenring_video_items = import_to_media_pool_dir(assets_dirs['eldenring'], VIDEO_MEDIA_DIR, media_pool)
+        video_items = video_items + eldenring_video_items
 
     # editar video
     edit_video(hook_timeranges, video_items, audio_items, project, media_pool, resolve,
                automate_actions, subject_timeranges, image_items, video_type,
-               shorts_timeranges, use_mic_audio)
+               shorts_timeranges, use_mic_audio, validate_shorts_duration, videogame_keyname)
 
     # guardar cambios en el proyecto de DaVinci Resolve
     project_manager.SaveProject()
